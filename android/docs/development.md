@@ -7,9 +7,12 @@ Wireless ADB pairing, connection, and shell access were verified against the
 Samsung Galaxy A33 (SM-A336B), running Android 16 / API 36. Its reported ABIs are
 `arm64-v8a`, `armeabi-v7a`, and `armeabi`.
 
-No application has been built, installed, or tested yet. Camera lifecycle,
-screen-off operation, lock-screen UI, and hardware-button behavior are separate
-device experiments, not consequences of successful ADB setup.
+The first recorder now has buildable application/instrumentation APKs and local
+automated checks; see [quality gates](quality.md). The implementation owner has
+not installed, launched or tested the application on the phone. Camera lifecycle
+and screen-off behavior require [main-agent device verification](device-verification.md),
+not inference from a build or ADB setup. Lock-screen takeover and hardware buttons
+are not part of this slice.
 
 ## Installed Tools
 
@@ -31,8 +34,9 @@ include `keytool`, `jarsigner`, and `jdb`; SDK Build-Tools include `aapt2`, `d8`
 Android Studio, emulator/system images, NDK, and CMake are not needed for initial
 Kotlin/Java development against the physical device and have not been installed.
 Do not install Ubuntu's system Gradle as the project build tool. Choose compatible
-AGP, Kotlin, and Gradle versions with the first application implementation and
-commit its Gradle Wrapper and configuration inside this component. Libraries
+AGP, Kotlin, and Gradle versions together. This component pins AGP 8.13.2, Kotlin
+2.2.21 and Gradle 8.13 with a checksum-verified Wrapper; see [quality](quality.md).
+Keep its Wrapper and configuration inside this component. Libraries
 such as CameraX, Compose, and Vosk are project dependencies, not global packages.
 
 ## Location and Environment

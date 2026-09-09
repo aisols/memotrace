@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item type="id" name="recorder_scroll" />
+    <item type="id" name="start_recording" />
+    <item type="id" name="pause_recording" />
+    <item type="id" name="record_status" />
+    <item type="id" name="saved_count" />
+    <item type="id" name="last_saved" />
+    <item type="id" name="capture_interval" />
+    <item type="id" name="cover_shadow" />
+</resources>

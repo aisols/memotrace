@@ -3,8 +3,10 @@
 ## Current Status
 
 MemoTrace has no released or supported software versions yet. The repository
-contains design documents and a component scaffold, not a production-ready
-system. Do not assume that described security controls are implemented.
+contains an early local-only Android recorder and server/API scaffolds, not a
+production-ready system. The recorder requests no network permission and disables
+backup; it does not yet synchronize its archive. Do not assume that other
+described security controls are implemented.
 
 ## Reporting
 

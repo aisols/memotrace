@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MemoTrace</string>
+    <string name="start">Начать запись</string>
+    <string name="pause">Пауза</string>
+    <string name="status_loading">Проверка архива…</string>
+    <string name="status_paused">Пауза. Камера выключена.</string>
+    <string name="status_starting">Подключение камеры…</string>
+    <string name="status_recording">Идёт запись</string>
+    <string name="status_stopping">Камера выключена. Завершение сохранения…</string>
+    <string name="status_error">Ошибка записи. Устраните причину и нажмите «Начать запись».</string>
+    <string name="status_camera_error">Камера недоступна. Закройте другую камеру и начните снова.</string>
+    <string name="status_storage_error">Ошибка архива или мало места. Готовые JPEG не удалены. Освободите место вне MemoTrace и перезапустите приложение.</string>
+    <string name="status_timeout">Камера или сохранение не ответили. Запись остановлена. Если «Начать запись» недоступно, остановите приложение в настройках и откройте снова.</string>
+    <string name="status_interrupted">Запись прервана системой. Для продолжения нажмите «Начать запись».</string>
+    <string name="status_permission">Для записи разрешите доступ к камере.</string>
+    <string name="saved_count">Сохранено JPEG: %1$d</string>
+    <string name="last_saved">Последнее сохранение: %1$s</string>
+    <string name="never_saved">ещё нет</string>
+    <string name="stats_unknown">данные архива недоступны</string>
+    <string name="interval">Интервал: %1$d мс (покой 2000, движение 1000)</string>
+    <string name="cover_unknown">Закрытие объектива: SHADOW, нет свежих данных</string>
+    <string name="cover_suspected">SHADOW: возможно, объектив закрыт. Кадры сохраняются.</string>
+    <string name="cover_clear">SHADOW: закрытие не обнаружено. Кадры сохраняются.</string>
+    <string name="scope_note">JPEG остаются только на телефоне. Более частая съёмка не устраняет смаз. Пауза выключает камеру; уже снятый кадр может сохраниться.</string>
+    <string name="channel_name">Запись JPEG</string>
+    <string name="notification_text">Запись JPEG: подключение или работа камеры. Для остановки нажмите «Пауза».</string>
+    <string name="notification_permission_note">Уведомления запрещены: запись видна в системном списке активных приложений.</string>
+</resources>

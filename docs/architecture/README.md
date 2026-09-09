@@ -27,7 +27,7 @@ not require a sibling `contracts/` checkout or a live server for code generation
 
 ## Independent Builds
 
-Android will own its Gradle settings, wrapper, dependencies, and tests. The server
+Android owns its Gradle settings, wrapper, dependencies, and tests. The server
 will own its Python package configuration, lockfile, container build, and tests.
 These files are added with working implementations, not placeholder versions.
 

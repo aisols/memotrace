@@ -1,6 +1,6 @@
 # Contributing to MemoTrace
 
-MemoTrace is currently a design-stage project. Discuss substantial changes to
+MemoTrace has an early Android recorder prototype and unfinished server/API design. Discuss substantial changes to
 behavior, component boundaries, public formats, or dependencies before building
 them. Do not treat a proposed design as a tested device capability.
 
@@ -22,9 +22,9 @@ component. A repository split must not require application changes.
 Follow the repository-wide [workflow rules](AGENTS.md).
 
 Keep changes focused and include the relevant tests and documentation. State
-which checks ran and which could not run. There are no application build or test
-commands yet; add reproducible commands to the component README when its first
-implementation is introduced.
+which checks ran and which could not run. Android build/test/coverage commands
+are in its component README; device verification remains a separate gate.
+Add reproducible commands with each other component's first implementation.
 
 Contract changes need examples and validation. Once consumers exist, check the
 declared supported client/server combinations, not only a simultaneously updated
