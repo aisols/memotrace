@@ -9,15 +9,16 @@ import android.content.pm.ServiceInfo
 import android.os.PowerManager
 import android.os.SystemClock
 import androidx.core.app.ServiceCompat
+import androidx.core.net.toUri
 import androidx.lifecycle.LifecycleService
 import org.memotrace.capture.CapturePolicy
+import org.memotrace.capture.CaptureSession
 import org.memotrace.capture.LumaMetrics
 import org.memotrace.recorder.R
 import org.memotrace.recorder.RecorderApplication
 import org.memotrace.recorder.storage.FrameRequest
 import org.memotrace.recorder.storage.PendingFrame
 import org.memotrace.recorder.ui.MainActivity
-import java.util.UUID
 
 /** Main-thread lifecycle and policy; one serial IO lane, one latest-only analysis lane. */
 class RecorderService : LifecycleService() {
@@ -33,7 +34,8 @@ class RecorderService : LifecycleService() {
     private var outstanding = false
     private var opened = false
     private var terminalStatus = R.string.status_paused
-    private val sessionId = UUID.randomUUID().toString()
+    private lateinit var session: CaptureSession
+    private var lastHandledStartId = 0
 
     override fun onStartCommand(
         intent: Intent?,
@@ -41,20 +43,32 @@ class RecorderService : LifecycleService() {
         startId: Int,
     ): Int {
         super.onStartCommand(intent, flags, startId)
+        lastHandledStartId = startId
         if (intent?.action == ACTION_PAUSE) {
-            stopRecording(R.string.status_paused)
+            val id = intent.getStringExtra(EXTRA_SESSION)
+            if (ownsSession && id == session.id) {
+                stopRecording(R.string.status_paused)
+            } else {
+                app.cancelStart(id)
+                if (!running) stopSelf(startId)
+            }
             return START_NOT_STICKY
         }
         if (running) return START_NOT_STICKY
         if (intent?.action != ACTION_START) {
-            stopSelf()
+            stopSelf(startId)
             return START_NOT_STICKY
         }
-        if (!app.ready || app.sessionOpen) {
-            stopSelf()
+        val reserved = app.consumeStart(intent.getStringExtra(EXTRA_SESSION))
+        if (reserved == null) {
+            stopSelf(startId)
             return START_NOT_STICKY
         }
         ownsSession = true
+        session = reserved
+        app.stopForStorageFailure = { stopRecording(R.string.status_storage_error) }
+        app.sessionPath = app.createDestination().prefix + session.relativePath
+        app.negotiatedSize = ""
         app.sessionOpen = true
         running = true
         opened = false
@@ -64,7 +78,10 @@ class RecorderService : LifecycleService() {
         app.coverText = getString(R.string.cover_unknown)
         try {
             showNotification()
-            check(app.persistRequest(true)) { "record_state_write" }
+            if (!app.persistRequest(true)) {
+                stopRecording(R.string.status_storage_error)
+                return START_NOT_STICKY
+            }
             policy.start()
             startedAt = SystemClock.elapsedRealtime()
             wakeLock =
@@ -75,9 +92,15 @@ class RecorderService : LifecycleService() {
                         acquire(WAKE_TIMEOUT_MS)
                     }
             renewedAt = startedAt
-            camera = app.createCamera(this, policy.config)
+            camera = app.createCamera(this, policy.config, session.profile)
             camera?.start(
-                onReady = { if (running) opened = true },
+                onReady = {
+                    if (running) {
+                        opened = true
+                        app.negotiatedSize = camera?.negotiatedSize?.let { "${it.width} x ${it.height}" } ?: ""
+                        app.publish()
+                    }
+                },
                 onError = { if (running) stopRecording(R.string.status_camera_error) },
             )
             app.main.post(tick)
@@ -104,7 +127,10 @@ class RecorderService : LifecycleService() {
             PendingIntent.getService(
                 this,
                 1,
-                Intent(this, RecorderService::class.java).setAction(ACTION_PAUSE),
+                Intent(this, RecorderService::class.java)
+                    .setAction(ACTION_PAUSE)
+                    .setData("memotrace://session/${session.id}".toUri())
+                    .putExtra(EXTRA_SESSION, session.id),
                 PendingIntent.FLAG_IMMUTABLE,
             )
         val notification =
@@ -169,13 +195,16 @@ class RecorderService : LifecycleService() {
                 System.currentTimeMillis(),
                 elapsedMs,
                 policy.intervalMs,
-                "v1;session=$sessionId;rear;jpegQuality=95;mode=minimizeLatency;baselineMs=${config.baselineMs};" +
+                "v2;session=${session.id};profile=${session.profile.id};rear;mode=minimizeLatency;baselineMs=${config.baselineMs};" +
                     "motionMs=${config.motionMs};enter=${config.motionEnter};exit=${config.motionExit};" +
                     "quietMs=${config.quietMs};analysisMs=${config.analysisMs}",
                 lastMetrics?.takeIf { elapsedMs - it.first <= 2_000 }?.let {
                     "v1;SHADOW;suspected=${it.second.coverSuspected};mean=${it.second.mean};" +
                         "variance=${it.second.variance};analysisElapsedMs=${it.first}"
                 } ?: "v1;SHADOW;unknown",
+                session,
+                camera?.negotiatedSize?.width,
+                camera?.negotiatedSize?.height,
             )
         app.io.execute {
             try {
@@ -192,7 +221,7 @@ class RecorderService : LifecycleService() {
                             persistResult(token, frame, result)
                         }
                         try {
-                            checkNotNull(camera).capture(frame.partial, ::accept)
+                            checkNotNull(camera).capture(frame.output.stream, ::accept)
                         } catch (_: Exception) {
                             accept(CaptureResult.CAMERA_FAILURE)
                         }
@@ -211,6 +240,8 @@ class RecorderService : LifecycleService() {
     ) {
         app.io.execute {
             var success = result == CaptureResult.SAVED
+            // Abandon may quarantine cleanup uncertainty, but it never turns an abort into SAVED
+            // or downgrades CameraX ERROR_FILE_IO (STORAGE_FAILURE).
             var failure = if (result == CaptureResult.STORAGE_FAILURE) R.string.status_storage_error else R.string.status_camera_error
             try {
                 if (success) app.store.finish(frame, System.currentTimeMillis()) else app.store.abandon(frame)
@@ -254,9 +285,15 @@ class RecorderService : LifecycleService() {
     }
 
     private fun stopRecording(status: Int) {
+        if (ownsSession && status == R.string.status_storage_error) {
+            terminalStatus = status
+            app.status = status
+            app.ready = false
+            app.persistRequest(false, true)
+        }
         if (ownsSession && running) {
             running = false
-            terminalStatus = status
+            if (terminalStatus != R.string.status_storage_error) terminalStatus = status
             if (status == R.string.status_paused) policy.pause() else policy.fail()
             releaseCamera()
             if (!app.persistRequest(false, terminalStatus != R.string.status_paused)) terminalStatus = R.string.status_storage_error
@@ -267,7 +304,7 @@ class RecorderService : LifecycleService() {
             app.publish()
         }
         stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        stopSelf(lastHandledStartId)
     }
 
     private fun releaseCamera() {
@@ -275,7 +312,7 @@ class RecorderService : LifecycleService() {
         try {
             camera?.close()
         } catch (_: RuntimeException) {
-            terminalStatus = R.string.status_camera_error
+            if (terminalStatus != R.string.status_storage_error) terminalStatus = R.string.status_camera_error
         } finally {
             camera = null
             wakeLock?.let { if (it.isHeld) it.release() }
@@ -286,8 +323,8 @@ class RecorderService : LifecycleService() {
     private fun releaseSession() {
         if (!ownsSession) return
         ownsSession = false
-        app.sessionOpen = false
         app.status = terminalStatus
+        app.endSession()
     }
 
     override fun onDestroy() {
@@ -299,6 +336,7 @@ class RecorderService : LifecycleService() {
     companion object {
         const val ACTION_START = "org.memotrace.recorder.START"
         const val ACTION_PAUSE = "org.memotrace.recorder.PAUSE"
+        const val EXTRA_SESSION = "org.memotrace.recorder.SESSION"
         private const val CHANNEL = "recorder"
         private const val WAKE_TIMEOUT_MS = 10 * 60 * 1_000L
     }

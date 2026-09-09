@@ -40,3 +40,5 @@ jobs:
       - uses: gradle/actions/setup-gradle@4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2 # v5.0.0
       - name: JVM Policy, Coverage, App Tests, Lint, Style, And APKs
         run: ./gradlew --no-daemon :capture-core:check :app:testDebugUnitTest :app:lintDebug spotlessCheck :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Connected-Test Safety Gates Without Devices
+        run: python3 tools/verify-connected-test-safety.py --temp-parent "${{ runner.temp }}"

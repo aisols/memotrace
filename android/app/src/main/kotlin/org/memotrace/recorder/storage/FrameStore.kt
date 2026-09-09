@@ -1,19 +1,16 @@
 package org.memotrace.recorder.storage
 
 import android.content.ContentValues
+import android.database.Cursor
 import android.database.DatabaseErrorHandler
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteDatabaseCorruptException
 import android.os.StatFs
+import androidx.core.database.sqlite.transaction
+import org.memotrace.capture.CaptureSession
 import java.io.File
-import java.io.FileInputStream
-import java.io.RandomAccessFile
 import java.nio.channels.FileChannel
-import java.nio.file.Files
-import java.nio.file.LinkOption
-import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
-import java.security.MessageDigest
 import java.util.UUID
 
 class FrameRequest(
@@ -22,21 +19,41 @@ class FrameRequest(
     val intervalMs: Long,
     val settings: String,
     val cover: String,
+    val session: CaptureSession,
+    val negotiatedWidth: Int?,
+    val negotiatedHeight: Int?,
 )
 
 class PendingFrame(
     val id: String,
-    val partial: File,
+    val uri: String,
+    val identity: MediaIdentity,
+    val output: CaptureOutput,
+)
+
+enum class Availability { AVAILABLE, MISSING, CHANGED, INACCESSIBLE, TRASHED, LEGACY_PRIVATE, CLEANUP_UNPROVEN }
+
+class SavedFrame(
+    val uri: String?,
+    val path: String?,
+    val bytes: Long?,
+    val width: Int?,
+    val height: Int?,
+    val availability: Availability,
+    val profileId: String? = null,
 )
 
 class ArchiveSummary(
     val count: Long,
     val lastSavedMs: Long?,
+    val last: SavedFrame? = null,
+    val quarantinedCount: Long = 0,
 )
 
-/** Only the application's serial IO executor may use this store. */
+/** Only the application's serial IO executor may use this store. Recovery is startup-only. */
 class FrameStore(
     private val root: File,
+    private val media: MediaDestination,
     private val availableBytes: () -> Long = { StatFs(root.path).availableBytes },
     private val checkpoint: (String) -> Unit = {},
 ) : AutoCloseable {
@@ -48,7 +65,6 @@ class FrameStore(
             check(root.mkdirs()) { "archive_directory" }
             FileChannel.open(root.parentFile!!.toPath(), StandardOpenOption.READ).use { it.force(true) }
         }
-        // Android's default corruption handler deletes the database; preserve evidence instead.
         database =
             SQLiteDatabase.openDatabase(
                 File(root, "index.sqlite").path,
@@ -61,21 +77,43 @@ class FrameStore(
             database.rawQuery("PRAGMA journal_mode=DELETE", null).use {
                 check(it.moveToFirst() && it.getString(0).equals("delete", ignoreCase = true)) { "journal_mode" }
             }
-            val version = database.version
-            check(version in 0..1) { "unsupported_archive_version" }
-            database.execSQL(
-                """
-                CREATE TABLE IF NOT EXISTS frames (
-                    id TEXT PRIMARY KEY, state INTEGER NOT NULL DEFAULT 0,
-                    request_wall_ms INTEGER NOT NULL, request_elapsed_ms INTEGER NOT NULL,
-                    interval_ms INTEGER NOT NULL, settings TEXT NOT NULL, cover_shadow TEXT NOT NULL,
-                    sha256 TEXT, bytes INTEGER, saved_wall_ms INTEGER, recovered INTEGER NOT NULL DEFAULT 0
+            check(database.version in 0..2) { "unsupported_archive_version" }
+            database.transaction {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS frames (
+                        id TEXT PRIMARY KEY, state INTEGER NOT NULL DEFAULT 0,
+                        request_wall_ms INTEGER NOT NULL, request_elapsed_ms INTEGER NOT NULL,
+                        interval_ms INTEGER NOT NULL, settings TEXT NOT NULL, cover_shadow TEXT NOT NULL,
+                        sha256 TEXT, bytes INTEGER, saved_wall_ms INTEGER, recovered INTEGER NOT NULL DEFAULT 0
+                    )
+                    """.trimIndent(),
                 )
-                """.trimIndent(),
-            )
-            database.execSQL("CREATE INDEX IF NOT EXISTS frames_state ON frames(state)")
-            database.version = 1
-            syncDirectory()
+                if (database.version < 2) {
+                    for (column in listOf(
+                        "locator_kind TEXT NOT NULL DEFAULT 'legacy'",
+                        "uri TEXT",
+                        "relative_path TEXT",
+                        "profile_id TEXT",
+                        "session_id TEXT",
+                        "requested_width INTEGER",
+                        "requested_height INTEGER",
+                        "jpeg_quality INTEGER",
+                        "negotiated_width INTEGER",
+                        "negotiated_height INTEGER",
+                        "actual_width INTEGER",
+                        "actual_height INTEGER",
+                        "validated INTEGER NOT NULL DEFAULT 0",
+                        "availability TEXT NOT NULL DEFAULT 'LEGACY_PRIVATE'",
+                    )) {
+                        database.execSQL("ALTER TABLE frames ADD COLUMN $column")
+                    }
+                }
+                database.execSQL("CREATE INDEX IF NOT EXISTS frames_state ON frames(state)")
+                database.version = 2
+                checkpoint("migration")
+            }
+            FileChannel.open(root.toPath(), StandardOpenOption.READ).use { it.force(true) }
         } catch (failure: Exception) {
             database.close()
             throw failure
@@ -86,6 +124,8 @@ class FrameStore(
         check(availableBytes() >= RESERVE_BYTES) { "low_disk" }
         acquisitionStarted = true
         val id = UUID.randomUUID().toString()
+        val identity = MediaIdentity("$id.jpg", media.prefix + request.session.relativePath)
+        val profile = request.session.profile
         database.insertOrThrow(
             "frames",
             null,
@@ -96,134 +136,282 @@ class FrameStore(
                 put("interval_ms", request.intervalMs)
                 put("settings", request.settings)
                 put("cover_shadow", request.cover)
+                put("locator_kind", "media")
+                put("relative_path", identity.path)
+                put("profile_id", profile.id)
+                put("session_id", request.session.id)
+                put("requested_width", profile.width)
+                put("requested_height", profile.height)
+                put("jpeg_quality", profile.quality)
+                put("negotiated_width", request.negotiatedWidth)
+                put("negotiated_height", request.negotiatedHeight)
+                put("availability", Availability.INACCESSIBLE.name)
             },
         )
         checkpoint("prepared")
-        return PendingFrame(id, File(root, "$id.part"))
+        val uri = media.insert(identity)
+        checkpoint("media_inserted")
+        update(id, ContentValues().apply { put("uri", uri) })
+        checkpoint("uri_saved")
+        val entry = checkNotNull(media.inspect(uri)) { "pending_missing" }
+        requireOwned(entry, identity)
+        check(entry.pending && !entry.trashed) { "output_not_pending" }
+        val output = media.openWrite(uri)
+        try {
+            checkpoint("output_opened")
+            return PendingFrame(id, uri, identity, output)
+        } catch (failure: Exception) {
+            output.close()
+            throw failure
+        }
     }
 
+    /** Called only after the CameraX disk lane drains, even on abort. */
     fun finish(
         frame: PendingFrame,
         savedWallMs: Long,
     ) {
-        val hash = digestJpeg(frame.partial)
-        RandomAccessFile(frame.partial, "rw").use { it.fd.sync() }
-        checkpoint("file_synced")
-        val original = File(root, "${frame.id}.jpg")
-        check(!original.exists()) { "duplicate_original" }
-        Files.move(frame.partial.toPath(), original.toPath(), StandardCopyOption.ATOMIC_MOVE)
-        syncDirectory()
-        checkpoint("renamed")
-        commit(frame.id, original, hash, savedWallMs, false)
+        frame.output.use {
+            it.sync()
+            checkpoint("file_synced")
+        }
+        val metadata = JpegMetadata.read { media.openRead(frame.uri) }
+        checkpoint("hashed")
+        update(
+            frame.id,
+            ContentValues().apply {
+                put("sha256", metadata.hash)
+                put("bytes", metadata.bytes)
+                put("actual_width", metadata.width)
+                put("actual_height", metadata.height)
+                put("saved_wall_ms", savedWallMs)
+                put("validated", 1)
+            },
+        )
+        checkpoint("validated")
+        requireOwned(checkNotNull(media.inspect(frame.uri)) { "pending_missing" }, frame.identity)
+        media.publish(frame.uri, frame.identity)
+        checkpoint("published")
+        val row = records("id=?", arrayOf(frame.id)).single()
+        update(
+            frame.id,
+            ContentValues().apply {
+                put("state", 1)
+                put("availability", availability(row).name)
+            },
+        )
         checkpoint("committed")
     }
 
-    /** Call only after CameraX's disk lane has drained, not merely its abort callback. */
     fun abandon(frame: PendingFrame) {
-        if (File(root, "${frame.id}.jpg").exists()) return
-        check(!frame.partial.exists() || frame.partial.delete()) { "partial_cleanup" }
-        syncDirectory()
-        database.delete("frames", "id=? AND state=0", arrayOf(frame.id))
+        frame.output.close()
+        val row = records("id=?", arrayOf(frame.id)).singleOrNull() ?: return
+        if (row.state == 1 || row.state == QUARANTINED || row.validated) return
+        try {
+            cleanup(row)
+        } catch (_: UnlinkUnprovenException) {
+            // The caller has already drained the writer. Uncertainty is not a write failure or successful image.
+            quarantine(row)
+        }
     }
 
-    /** Startup only, before any new acquisition. Renamed originals are roll-forward commits. */
     fun recover(nowWallMs: Long) {
         check(!acquisitionStarted) { "recovery_requires_startup_quiescence" }
-        val scratchName = Regex("CameraX[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.part")
-        Files.newDirectoryStream(root.toPath(), "CameraX*.part").use { files ->
-            for (file in files) {
-                if (scratchName.matches(file.fileName.toString()) && Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
-                    Files.delete(file)
+        LegacyArchive(root, database).recover(nowWallMs)
+        for (row in records("state=0 AND locator_kind='media'")) {
+            val identity = row.identity()
+            check(identity.path.startsWith(media.prefix) && !identity.path.contains("..")) { "media_namespace" }
+            val entry =
+                if (row.uri != null) {
+                    media.inspect(row.uri)
+                } else {
+                    media.find(identity).let {
+                        check(it.size <= 1) { "ambiguous_pending_media" }
+                        it.singleOrNull()
+                    }
                 }
-            }
-        }
-        syncDirectory()
-        while (true) {
-            val id =
-                database.rawQuery("SELECT id FROM frames WHERE state=0 LIMIT 1", null).use {
-                    if (it.moveToFirst()) it.getString(0) else null
-                } ?: break
-            val original = File(root, "$id.jpg")
-            if (original.exists()) {
-                commit(id, original, digestJpeg(original), nowWallMs, true)
-            } else {
-                abandon(PendingFrame(id, File(root, "$id.part")))
-            }
-        }
-        database.rawQuery("SELECT id, bytes FROM frames WHERE state=1", null).use { rows ->
-            while (rows.moveToNext()) {
-                val file = File(root, "${rows.getString(0)}.jpg")
-                check(file.isFile && file.length() == rows.getLong(1)) { "archive_inconsistent" }
-            }
-        }
-        Files.newDirectoryStream(root.toPath(), "*.jpg").use { files ->
-            for (file in files) {
-                val id = file.fileName.toString().removeSuffix(".jpg")
-                database.rawQuery("SELECT 1 FROM frames WHERE id=? AND state=1", arrayOf(id)).use {
-                    check(it.moveToFirst()) { "unindexed_original" }
+            if (!row.validated) {
+                var unproven = entry == null
+                if (entry != null) {
+                    requireOwned(entry, identity)
+                    check(entry.pending) { "unexpected_published_original" }
+                    try {
+                        media.deletePending(entry.uri, identity)
+                    } catch (_: UnlinkUnprovenException) {
+                        unproven = true
+                    }
                 }
+                if (unproven) {
+                    quarantine(row, row.uri ?: entry?.uri)
+                } else {
+                    database.delete("frames", "id=? AND state=0", arrayOf(row.id))
+                }
+                continue
             }
-        }
-    }
-
-    fun summary(): ArchiveSummary =
-        database
-            .rawQuery(
-                "SELECT COUNT(*), (SELECT saved_wall_ms FROM frames WHERE state=1 ORDER BY rowid DESC LIMIT 1) FROM frames WHERE state=1",
-                null,
-            ).use {
-                it.moveToFirst()
-                ArchiveSummary(it.getLong(0), if (it.isNull(1)) null else it.getLong(1))
+            if (entry == null) {
+                // Publication may have succeeded and the user then deleted it. Keep the durable metadata.
+                update(
+                    row.id,
+                    ContentValues().apply {
+                        put("state", 1)
+                        put("recovered", 1)
+                        put("availability", Availability.MISSING.name)
+                    },
+                )
+                continue
             }
-
-    private fun commit(
-        id: String,
-        file: File,
-        hash: String,
-        wallMs: Long,
-        recovered: Boolean,
-    ) {
-        check(
-            database.update(
-                "frames",
+            if (entry.pending) {
+                requireOwned(entry, identity)
+                val metadata = JpegMetadata.read { media.openRead(entry.uri) }
+                val same =
+                    metadata.hash == row.hash && metadata.bytes == row.bytes && metadata.width == row.width && metadata.height == row.height
+                check(same) {
+                    "validated_pending_changed"
+                }
+                media.publish(entry.uri, identity)
+            }
+            update(
+                row.id,
                 ContentValues().apply {
+                    put("uri", entry.uri)
                     put("state", 1)
-                    put("sha256", hash)
-                    put("bytes", file.length())
-                    put("saved_wall_ms", wallMs)
-                    put("recovered", if (recovered) 1 else 0)
+                    put("recovered", 1)
                 },
-                "id=? AND state=0",
-                arrayOf(id),
-            ) == 1,
-        ) { "missing_pending_record" }
+            )
+        }
+        reconcile()
     }
 
-    private fun digestJpeg(file: File): String {
-        RandomAccessFile(file, "r").use {
-            check(it.length() >= 4 && it.readUnsignedShort() == 0xffd8) { "invalid_jpeg" }
-            it.seek(it.length() - 2)
-            check(it.readUnsignedShort() == 0xffd9) { "incomplete_jpeg" }
+    private fun cleanup(row: Record) {
+        val identity = row.identity()
+        val entry = row.uri?.let { media.inspect(it) }
+        if (entry == null) throw UnlinkUnprovenException("pending_absent_unlink_unproven")
+        requireOwned(entry, identity)
+        if (!entry.pending) return
+        media.deletePending(entry.uri, identity)
+        database.delete("frames", "id=? AND state=0", arrayOf(row.id))
+    }
+
+    private fun quarantine(
+        row: Record,
+        uri: String? = row.uri,
+    ) {
+        // DB errors must escape; retaining this record is required before session release.
+        update(
+            row.id,
+            ContentValues().apply {
+                put("state", QUARANTINED)
+                put("availability", Availability.CLEANUP_UNPROVEN.name)
+                put("uri", uri)
+            },
+        )
+    }
+
+    /** Scoped metadata queries only, never opens every historical image on a capture tick. */
+    fun reconcile(lastOnly: Boolean = false) {
+        val selection = if (lastOnly) "state=1 AND rowid=(SELECT MAX(rowid) FROM frames WHERE state=1)" else "state=1"
+        for (row in records(selection)) {
+            if (row.kind != "media") continue
+            val available = availability(row, lastOnly)
+            if (available != row.availability) update(row.id, ContentValues().apply { put("availability", available.name) })
         }
-        val digest = MessageDigest.getInstance("SHA-256")
-        FileInputStream(file).use { input ->
-            val buffer = ByteArray(32 * 1024)
-            while (true) {
-                val size = input.read(buffer)
-                if (size < 0) break
-                digest.update(buffer, 0, size)
+    }
+
+    private fun availability(
+        row: Record,
+        read: Boolean = false,
+    ): Availability =
+        try {
+            val entry = row.uri?.let { media.inspect(it) }
+            when {
+                entry == null -> Availability.MISSING
+                entry.trashed -> Availability.TRASHED
+                entry.pending -> Availability.INACCESSIBLE
+                entry.owner != media.owner || entry.name != "${row.id}.jpg" || entry.path != row.path || entry.bytes != row.bytes ->
+                    Availability.CHANGED
+                else -> {
+                    if (read) media.openRead(checkNotNull(row.uri)).use { check(it.read() >= 0) { "media_empty" } }
+                    Availability.AVAILABLE
+                }
             }
+        } catch (_: Exception) {
+            Availability.INACCESSIBLE
         }
-        return digest.digest().joinToString("") { "%02x".format(it) }
+
+    fun summary(): ArchiveSummary {
+        val count =
+            database.rawQuery("SELECT COUNT(*) FROM frames WHERE state=1", null).use {
+                it.moveToFirst()
+                it.getLong(0)
+            }
+        val row = records("state=1 ORDER BY rowid DESC LIMIT 1").singleOrNull()
+        val quarantined =
+            database.rawQuery("SELECT COUNT(*) FROM frames WHERE state=$QUARANTINED", null).use {
+                it.moveToFirst()
+                it.getLong(0)
+            }
+        return ArchiveSummary(
+            count,
+            row?.savedMs,
+            row?.let {
+                SavedFrame(it.uri, it.path, it.bytes, it.width, it.height, it.availability, it.profileId)
+            },
+            quarantined,
+        )
     }
 
-    private fun syncDirectory() {
-        FileChannel.open(root.toPath(), StandardOpenOption.READ).use { it.force(true) }
+    private fun requireOwned(
+        entry: MediaEntry,
+        identity: MediaIdentity,
+    ) {
+        check(identity.path.startsWith(media.prefix) && !identity.path.contains("..")) { "media_namespace" }
+        check(entry.owner == media.owner && entry.name == identity.name && entry.path == identity.path) { "media_ownership" }
+    }
+
+    private fun update(
+        id: String,
+        values: ContentValues,
+    ) {
+        check(database.update("frames", values, "id=?", arrayOf(id)) == 1) { "missing_frame_record" }
+    }
+
+    private fun records(
+        where: String,
+        args: Array<String>? = null,
+    ): List<Record> =
+        database.rawQuery("SELECT * FROM frames WHERE $where", args).use { rows ->
+            buildList { while (rows.moveToNext()) add(Record(rows)) }
+        }
+
+    private class Record(
+        row: Cursor,
+    ) {
+        private fun Cursor.text(name: String): String? = getColumnIndexOrThrow(name).let { if (isNull(it)) null else getString(it) }
+
+        val id = checkNotNull(row.text("id"))
+        val state = row.text("state")!!.toInt()
+        val kind = row.text("locator_kind")
+        val profileId = row.text("profile_id")
+        val uri = row.text("uri")
+        val path = row.text("relative_path")
+        val validated = row.text("validated") == "1"
+        val hash = row.text("sha256")
+        val bytes = row.text("bytes")?.toLong()
+        val width = row.text("actual_width")?.toInt()
+        val height = row.text("actual_height")?.toInt()
+        val savedMs = row.text("saved_wall_ms")?.toLong()
+        val availability = Availability.valueOf(row.text("availability")!!)
+
+        fun identity(): MediaIdentity {
+            check(UUID.fromString(id).toString() == id) { "invalid_frame_id" }
+            return MediaIdentity("$id.jpg", checkNotNull(path))
+        }
     }
 
     override fun close() = database.close()
 
     companion object {
+        const val QUARANTINED = 2
         const val RESERVE_BYTES = 128L * 1024 * 1024
     }
 }

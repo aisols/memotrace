@@ -3,25 +3,31 @@ package org.memotrace.recorder.capture
 import android.content.Context
 import android.os.SystemClock
 import android.util.Size
+import androidx.camera.core.AspectRatio
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.CameraState
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import org.memotrace.capture.CaptureConfig
+import org.memotrace.capture.CaptureProfile
 import org.memotrace.capture.LumaAnalyzer
 import org.memotrace.capture.LumaMetrics
-import java.io.File
+import java.io.OutputStream
+import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 /** Commands and callbacks on main, except the single overwrite-only analysis slot. */
 interface RecorderCamera {
+    val negotiatedSize: Size? get() = null
+
     fun start(
         onReady: () -> Unit,
         onError: () -> Unit,
@@ -30,7 +36,7 @@ interface RecorderCamera {
     fun takeAnalysis(): Pair<Long, LumaMetrics>?
 
     fun capture(
-        output: File,
+        output: OutputStream,
         onComplete: (CaptureResult) -> Unit,
     )
 
@@ -41,6 +47,7 @@ class CameraXRecorderCamera(
     private val context: Context,
     private val owner: LifecycleOwner,
     private val config: CaptureConfig,
+    private val profile: CaptureProfile,
 ) : RecorderCamera {
     private val executor = Executors.newSingleThreadExecutor()
     private val main = ContextCompat.getMainExecutor(context)
@@ -52,6 +59,7 @@ class CameraXRecorderCamera(
     private var analysis: ImageAnalysis? = null
     private var closed = false
     private var opened = false
+    override val negotiatedSize: Size? get() = capture?.resolutionInfo?.resolution
 
     override fun start(
         onReady: () -> Unit,
@@ -63,14 +71,7 @@ class CameraXRecorderCamera(
             try {
                 val cameras = future.get()
                 provider = cameras
-                val jpeg =
-                    ImageCapture
-                        .Builder()
-                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                        .setOutputFormat(ImageCapture.OUTPUT_FORMAT_JPEG)
-                        .setJpegQuality(95)
-                        .setIoExecutor(disk.executor)
-                        .build()
+                val jpeg = imageCapture(profile, disk.executor)
                 val lowResolution =
                     ImageAnalysis
                         .Builder()
@@ -124,7 +125,7 @@ class CameraXRecorderCamera(
     override fun takeAnalysis(): Pair<Long, LumaMetrics>? = latest.getAndSet(null)
 
     override fun capture(
-        output: File,
+        output: OutputStream,
         onComplete: (CaptureResult) -> Unit,
     ) {
         check(!closed)
@@ -146,5 +147,35 @@ class CameraXRecorderCamera(
             executor.shutdown()
             disk.close()
         }
+    }
+
+    companion object {
+        fun imageCapture(
+            profile: CaptureProfile,
+            executor: Executor,
+        ): ImageCapture =
+            ImageCapture
+                .Builder()
+                .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                .setOutputFormat(ImageCapture.OUTPUT_FORMAT_JPEG)
+                .setJpegQuality(profile.quality)
+                .setResolutionSelector(resolutionSelector(profile))
+                .setIoExecutor(executor)
+                .build()
+
+        fun resolutionSelector(profile: CaptureProfile): ResolutionSelector =
+            ResolutionSelector
+                .Builder()
+                .setAspectRatioStrategy(
+                    AspectRatioStrategy(
+                        if (profile.wide) AspectRatio.RATIO_16_9 else AspectRatio.RATIO_4_3,
+                        AspectRatioStrategy.FALLBACK_RULE_AUTO,
+                    ),
+                ).setResolutionStrategy(
+                    ResolutionStrategy(
+                        Size(profile.width, profile.height),
+                        ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER,
+                    ),
+                ).build()
     }
 }

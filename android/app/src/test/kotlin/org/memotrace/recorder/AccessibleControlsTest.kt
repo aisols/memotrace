@@ -29,6 +29,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import org.robolectric.shadows.ShadowAlertDialog
 import java.util.concurrent.TimeUnit
 
 class LargeFontActivity : MainActivity() {
@@ -88,15 +89,19 @@ class AccessibleControlsTest {
     }
 
     @Test fun accessibilityActionsUseNativeClickAndRealStartPauseListeners() {
+        assertTrue(app.consentToPublicPictures())
         shadowOf(app).grantPermissions(Manifest.permission.CAMERA, Manifest.permission.POST_NOTIFICATIONS)
         Robolectric.buildActivity(MainActivity::class.java).setup().use { controller ->
+            app.io.submit {}.get(5, TimeUnit.SECONDS)
             shadowOf(Looper.getMainLooper()).idle()
             val activity = controller.get()
             layout(activity.window.decorView)
             val start = activity.findViewById<Button>(R.id.start_recording)
             accessible(start)
             assertTrue(start.performAccessibilityAction(AccessibilityNodeInfo.ACTION_CLICK, null))
-            assertEquals(RecorderService.ACTION_START, shadowOf(app).nextStartedService.action)
+            val startIntent = shadowOf(app).nextStartedService
+            assertEquals(RecorderService.ACTION_START, startIntent.action)
+            assertTrue(app.consumeStart(startIntent.getStringExtra(RecorderService.EXTRA_SESSION)) != null)
             app.sessionOpen = true
             app.status = R.string.status_recording
             app.publish()
@@ -137,6 +142,33 @@ class AccessibleControlsTest {
             app.publish()
             layout(activity.window.decorView)
             assertEquals(stableTop, start.top to pause.top)
+        }
+    }
+
+    @Test fun profileAndConsentDialogsKeepCompleteLargeFontButtonsAndScrollAccess() {
+        Robolectric.buildActivity(LargeFontActivity::class.java).setup().use { controller ->
+            val activity = controller.get()
+            for (trigger in listOf(R.id.select_profile, R.id.start_recording)) {
+                app.io.submit {}.get(5, TimeUnit.SECONDS)
+                shadowOf(Looper.getMainLooper()).idle()
+                activity.findViewById<Button>(trigger).performClick()
+                shadowOf(Looper.getMainLooper()).idle()
+                val dialog = ShadowAlertDialog.getLatestAlertDialog()
+                layout(dialog.window!!.decorView)
+                val scroll = dialog.findViewById<ScrollView>(R.id.dialog_scroll)
+                val content = scroll.getChildAt(0) as LinearLayout
+                assertTrue(scroll.canScrollVertically(1))
+                for (index in 1 until content.childCount) {
+                    val button = content.getChildAt(index) as Button
+                    assertTrue(button is TremorButton)
+                    assertEquals(button.text.length, button.layout.getLineEnd(button.layout.lineCount - 1))
+                    assertTrue(button.height >= button.layout.height + button.compoundPaddingTop + button.compoundPaddingBottom)
+                    repeat(button.layout.lineCount) { assertEquals(0, button.layout.getEllipsisCount(it)) }
+                    scroll.scrollTo(0, button.top)
+                    accessible(button)
+                }
+                dialog.dismiss()
+            }
         }
     }
 

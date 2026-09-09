@@ -17,6 +17,11 @@ verification remain separate gates; implementation is not hardware evidence.
 There is no server implementation or published API yet. Synchronization, speech
 and advanced device interactions remain future work, without placeholder controls.
 
+The JPEG comparison prototype offers six profiles and public Gallery/My Files
+originals after explicit first-Start consent. MemoTrace itself stays offline, but
+Gallery/Photos/OneDrive may independently back up these images. See
+[profiles and storage](android/README.md#compare-profiles) and [security](SECURITY.md).
+
 The initial reference device is a dedicated Samsung Galaxy A33 running Android
 16 / One UI 8, with continued access to its existing applications. The reference
 server is Linux with a Ryzen 9 5950X, 64 GB RAM, and no GPU.

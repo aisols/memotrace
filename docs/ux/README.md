@@ -20,6 +20,13 @@ requirements and design proposals, not claims about implemented Android support.
   still needs evaluation on the intended user's speech.
 - Minimize decisions, taps, and navigation for an older person unfamiliar with
   current mobile interfaces. Do not require long-press or double-tap gestures.
+- JPEG comparison uses six readable profiles via large accessible buttons.
+  Pause/drain before changing; each Start creates a profile-bearing album.
+  Distinguish requested size, CameraX stream size and actual JPEG size.
+- First Start explains public Pictures and independent cloud backup by
+  Gallery/Photos/OneDrive, with an accessible cancel route. Conversation consent
+  is not consent for another installation. Show the session folder and read-only
+  last-image viewer, with honest unavailable status.
 
 ## Tremor-Tolerant Touches
 
