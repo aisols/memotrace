@@ -1,0 +1,27 @@
+# Local configuration and credentials, including in component directories.
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+
+# Runtime material is not source code. Prefer storage outside the repository.
+/local/
+/data/
+/records/
+/archive/
+/backups/
+/models/
+/artifacts/
+/graphify-out/
+
+# Local editor state.
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*.swo
