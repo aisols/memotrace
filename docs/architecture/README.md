@@ -28,12 +28,14 @@ not require a sibling `contracts/` checkout or a live server for code generation
 ## Independent Builds
 
 Android owns its Gradle settings, wrapper, dependencies, and tests. The server
-will own its build manifests, lockfiles, container build, and tests for its stack.
+owns its build manifests, lockfiles, container build, and tests for its stack.
 These files are added with working implementations, not placeholder versions.
 
 The [proposed server foundation](../decisions/0005-server-foundation.md) records
-the preferred Go core/Python inference recommendation and its open decisions.
-SPEC remains the original baseline; the recommendation is subject to ADR review.
+the historical Go core/Python inference recommendation and its open decisions.
+[ADR 0006](../decisions/0006-ingestion-v0-1.md) adopts Go for the implemented,
+unreleased ingestion slice; Python inference remains proposed and unimplemented.
+SPEC remains the original baseline.
 
 The server Docker build context is `server/`, not the entire monorepository.
 Development Compose may reference `../server` from `deploy/`; this is an explicit

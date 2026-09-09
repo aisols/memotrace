@@ -113,3 +113,12 @@ The final corrected hosted run awaits the main agent at report time, not a claim
 pass. [PR #2](https://github.com/aisols/memotrace/pull/2) is authoritative for hosted
 status. Latest-revision CI and unresolved required checks remain merge gates.
 These observations do not establish full MVP readiness.
+
+## Later Tooling Caution
+
+The historical pass counts and observations above are unchanged. A subsequent
+AGP 8.13.2/UTP 31.13.2 audit found default host teardown can uninstall target/test
+APKs without keeping private data, independently of test success. Application-level
+fixture isolation alone is not retention evidence after the host finishes. Future
+shared-phone runs must use the [connected-test safety gates](connected-test-safety.md)
+and retain APKs; do not infer archive/ledger survival from this report's test pass.

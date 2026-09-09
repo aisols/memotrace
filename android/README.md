@@ -1,10 +1,11 @@
 # MemoTrace Android
 
-Buildable, local-only adaptive JPEG recorder prototype for **Android 16 / API 36
+Buildable, offline adaptive JPEG recorder prototype for **Android 16 / API 36
 and later**. API 36 is the only current test target; older Android versions are
 deliberately not advertised by this first slice. Bounded SM-A336B observations and
 remaining hardware limits are recorded in the
-[2026-09-09 main-agent evidence](docs/verification-2026-09-09.md).
+[2026-09-09 profile evidence](docs/profiles-verification-2026-09-09.md), including
+final `6445bad` results; the [v1 evidence](docs/verification-2026-09-09.md) is historical.
 The implementation owner did not install or launch the app.
 
 ## Implemented Scope
@@ -14,9 +15,12 @@ The implementation owner did not install or launch the app.
   including persistence at a time. Slow work reduces cadence rather than queuing.
 - Sampled, latest-only low-resolution luma analysis. Cover suspicion is **SHADOW**:
   diagnostics only, never a reason to suppress, modify, or delete originals.
-- App-private originals, SQLite metadata/checksums, startup recovery, low-space
-  safe stop, persisted user intent and authoritative saved count/last-save time.
-- Russian native Views, two large tremor-tolerant Start/Pause buttons, status and diagnostics.
+- Six JPEG profiles, default 1440x1080 Q90 only when unset, selectable only after
+  Pause drains. Every Start creates a new profile/session Gallery folder.
+- One original in public MediaStore Pictures after explicit first-Start consent;
+  private schema-v2 SQLite metadata/checksums, recovery, low-space safe stop,
+  persisted selection/intent, actual dimensions, bytes and last-image viewer.
+- Russian native Views, large tremor-tolerant Start/Pause/profile/view controls, status and diagnostics.
   DOWN-anchored limited slip, UP-once and irreversible scroll/system cancellation;
   native performClick/accessibility actions, no long/double-press requirement.
   The page only scrolls when available height/text scaling requires it.
@@ -27,8 +31,32 @@ lock-screen takeover. Other applications remain accessible. A bounded screen-off
 observation is recorded in the [main-agent evidence](docs/verification-2026-09-09.md),
 not an endurance guarantee. Faster sampling does not fix motion blur. All finalized
 JPEGs are retained, including covered/dark scenes.
-Uninstalling the application or clearing its data destroys this local archive;
-there is no synchronization or backup in this slice.
+Gallery, Google Photos and OneDrive may independently back up these public images.
+MemoTrace's lack of network permission does not prevent that. Public images may
+survive uninstall/data clearing, but the private index and legacy private archive
+are lost; reinstall cannot restore their index/ownership. Shipped v1 private files
+are preserved on upgrade, not exported or made viewable automatically.
+No MemoTrace synchronization/backup or release publishing in this debug prototype.
+
+## Compare Profiles
+
+| Stable ID | Requested JPEG | Purpose |
+| --- | --- | --- |
+| `v1-4000x3000-q95` | 4000x3000 Q95, 4:3 | Reference |
+| `v1-4000x3000-q80` | 4000x3000 Q80, 4:3 | Compression control |
+| `v1-1920x1080-q90` | 1920x1080 Q90, 16:9 | Wide |
+| `v1-1920x1080-q80` | 1920x1080 Q80, 16:9 | Wide/compression |
+| `v1-1440x1080-q90` | 1440x1080 Q90, 4:3 | Experimental lower-volume default |
+| `v1-1440x1080-q80` | 1440x1080 Q80, 4:3 | Compact/compression |
+
+Pause and wait for drain, choose profile, Start, record a repeatable scene, Pause,
+wait for drain, then choose the next profile and Start. Use **Open last JPEG** or Gallery/My Files at
+`Pictures/MemoTrace/<profile>/<profile>_<UTC-time>_<session-UUID>/`.
+16:9 may crop the top/bottom of the 4:3 view. CameraX uses closest-lower-then-higher
+fallback; compare actual dimensions, not requested size alone. No application
+Bitmap rescale/re-encode. Q is a CameraX request, not a universal quality score.
+No battery/legibility superiority is claimed without benchmarking. A controlled
+same-scene comparison remains user work; the dated samples are not that benchmark.
 
 ## Build And Verify
 
@@ -52,11 +80,45 @@ Only the coordinating main agent/operator runs the device command:
 ./gradlew :app:connectedDebugAndroidTest
 ```
 
-Instrumented tests replace the Application with an isolated archive/preferences
-implementation, including the real-camera test. Pause ordinary recording before
+Host safety is separate from test Application isolation. Component defaults retain
+both APKs and forbid uninstall-on-incompatibility; a prerequisite and first-action
+gate reject unsafe/missing effective values before DeviceProvider/install. Run
+`./gradlew :app:verifyConnectedTestSafety :app:verifyConnectedTestSafetyWiring`
+without a device. See [host safety](docs/connected-test-safety.md) for override
+regressions, the pinned uninstall audit, explicit flags and direct-ADB alternative.
+MAIN confirmed the target package was absent after the earlier failed connected
+run; its runner-stage ledger retention did not protect against host teardown.
+
+Instrumented tests replace the Application with a UUID-isolated archive/preferences
+and `Pictures/MemoTrace-instrumentation/<run-UUID>/` MediaStore namespace, including
+real-camera tests. Cleanup requires a private per-run creation ledger (identity
+before insertion, returned URI afterward), then exact-identity assert/delete
+batches after drain. Owner/path/UUID format alone does not prove fixture creation.
+Ledger removal additionally requires physical unlink evidence from a retained
+descriptor; missing rows alone are insufficient. Uncertain cleanup reports and
+retains provenance, never scans/deletes other paths. Native test pass counts do
+not imply all test residue is gone; the lost-witness test retains a diagnostic ledger.
+Normal Pictures/MemoTrace and the private archive are never cleanup targets. Pause ordinary recording before
 running instrumentation: Android may terminate the normal application process.
 Use a synthetic/nonprivate scene. Never clear normal application data to reset
-tests. See [device verification](docs/device-verification.md).
+tests. Test frames are public too: approve the scene and consider independent
+cloud backup settings. See [device verification](docs/device-verification.md).
+
+Full history availability checks defer until Pause has drained; an idle check
+temporarily gates Start. Trash/missing/changed files retain historical metadata,
+not viewing eligibility. Start reserves the selected profile before service delivery.
+Pause commands target that session; stale commands cannot stop its replacement.
+At startup, old unvalidated media with missing/unproven cleanup becomes a retained
+quarantine tombstone. Its separate diagnostic count is not a saved-image count;
+new sessions are allowed without deleting uncertain artifacts. Quarantine is not
+retried on every startup. Current write, DB and provider failures remain fatal.
+After writer-drained Pause/abort, typed unlink uncertainty is also quarantined
+without disabling the next Start. FUSE fstat ENOENT means UNKNOWN, not proven
+unlink; STILL_LINKED is reported separately. Expected test-cleanup uncertainty is
+reported with retained ledgers rather than crashing instrumentation finish.
+The [A33 gallery test attempt](docs/a33-gallery-failure-2026-09-09.md) failed before
+this adaptation; MAIN's subsequent passes and remaining residue uncertainty are
+recorded in the profile evidence linked above, without replacing that failure report.
 
 ## Layout
 
@@ -80,8 +142,10 @@ mutates source tests; see the quality document for expected gate failures.
 ## Documentation
 
 - [Architecture and recovery protocol](docs/recorder-architecture.md)
+- [MediaStore, schema v2 and migration](docs/media-storage.md)
 - [Quality gates, versions and local results](docs/quality.md)
 - [Device verification and automation IDs](docs/device-verification.md)
+- [Connected-test host safety](docs/connected-test-safety.md)
 - [Linux toolchain and ADB setup](docs/development.md)
 - [Dependency provenance and notices](NOTICE.md)
 

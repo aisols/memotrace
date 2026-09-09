@@ -5,7 +5,22 @@
     <item type="id" name="pause_recording" />
     <item type="id" name="record_status" />
     <item type="id" name="saved_count" />
+    <item type="id" name="quarantined_count" />
     <item type="id" name="last_saved" />
     <item type="id" name="capture_interval" />
     <item type="id" name="cover_shadow" />
+    <item type="id" name="select_profile" />
+    <item type="id" name="negotiated_size" />
+    <item type="id" name="session_folder" />
+    <item type="id" name="last_file_details" />
+    <item type="id" name="view_last" />
+    <item type="id" name="profile_reference" />
+    <item type="id" name="profile_compression" />
+    <item type="id" name="profile_wide_90" />
+    <item type="id" name="profile_wide_80" />
+    <item type="id" name="profile_compact_90" />
+    <item type="id" name="profile_compact_80" />
+    <item type="id" name="consent_accept" />
+    <item type="id" name="dialog_cancel" />
+    <item type="id" name="dialog_scroll" />
 </resources>

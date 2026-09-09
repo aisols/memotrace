@@ -21,6 +21,9 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.memotrace.recorder.capture.RecorderService
+import org.memotrace.recorder.storage.ArchiveSummary
+import org.memotrace.recorder.storage.Availability
+import org.memotrace.recorder.storage.SavedFrame
 import org.memotrace.recorder.ui.MainActivity
 import org.memotrace.recorder.ui.TremorButton
 import org.robolectric.Robolectric
@@ -29,6 +32,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import org.robolectric.shadows.ShadowAlertDialog
 import java.util.concurrent.TimeUnit
 
 class LargeFontActivity : MainActivity() {
@@ -88,15 +92,19 @@ class AccessibleControlsTest {
     }
 
     @Test fun accessibilityActionsUseNativeClickAndRealStartPauseListeners() {
+        assertTrue(app.consentToPublicPictures())
         shadowOf(app).grantPermissions(Manifest.permission.CAMERA, Manifest.permission.POST_NOTIFICATIONS)
         Robolectric.buildActivity(MainActivity::class.java).setup().use { controller ->
+            app.io.submit {}.get(5, TimeUnit.SECONDS)
             shadowOf(Looper.getMainLooper()).idle()
             val activity = controller.get()
             layout(activity.window.decorView)
             val start = activity.findViewById<Button>(R.id.start_recording)
             accessible(start)
             assertTrue(start.performAccessibilityAction(AccessibilityNodeInfo.ACTION_CLICK, null))
-            assertEquals(RecorderService.ACTION_START, shadowOf(app).nextStartedService.action)
+            val startIntent = shadowOf(app).nextStartedService
+            assertEquals(RecorderService.ACTION_START, startIntent.action)
+            assertTrue(app.consumeStart(startIntent.getStringExtra(RecorderService.EXTRA_SESSION)) != null)
             app.sessionOpen = true
             app.status = R.string.status_recording
             app.publish()
@@ -137,6 +145,88 @@ class AccessibleControlsTest {
             app.publish()
             layout(activity.window.decorView)
             assertEquals(stableTop, start.top to pause.top)
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h914dp-mdpi")
+    fun normalPortraitKeepsActionsAboveDiagnosticsVisibleAndStable() {
+        Robolectric.buildActivity(MainActivity::class.java).setup().use { controller ->
+            app.io.submit {}.get(5, TimeUnit.SECONDS)
+            shadowOf(Looper.getMainLooper()).idle()
+            val activity = controller.get()
+            assertEquals(1f, activity.resources.configuration.fontScale)
+            layout(activity.window.decorView, 411, 914)
+            val scroll = activity.findViewById<ScrollView>(R.id.recorder_scroll)
+            val content = scroll.getChildAt(0) as LinearLayout
+            val buttons =
+                listOf(R.id.start_recording, R.id.pause_recording, R.id.select_profile, R.id.view_last)
+                    .map { activity.findViewById<Button>(it) }
+            assertEquals(0, scroll.scrollY)
+            buttons.forEachIndexed { index, button ->
+                assertTrue(button is TremorButton)
+                assertEquals(index + 1, content.indexOfChild(button))
+                assertEquals(View.VISIBLE, button.visibility)
+                val visible = Rect()
+                assertTrue(button.getLocalVisibleRect(visible))
+                assertEquals(button.width, visible.width())
+                assertEquals(button.height, visible.height())
+            }
+            assertEquals(buttons[0].bottom + 12, buttons[1].top)
+            assertEquals(5, content.indexOfChild(activity.findViewById(R.id.record_status)))
+            assertTrue(activity.findViewById<View>(R.id.record_status).top >= buttons.last().bottom)
+            val bounds = buttons.map { Rect(it.left, it.top, it.right, it.bottom) }
+
+            app.summary =
+                ArchiveSummary(
+                    1,
+                    1,
+                    SavedFrame(
+                        "content://media/external_primary/images/media/1",
+                        "Pictures/MemoTrace/test/",
+                        100,
+                        16,
+                        12,
+                        Availability.AVAILABLE,
+                    ),
+                    quarantinedCount = 2,
+                )
+            app.coverText = "SHADOW diagnostic ".repeat(30)
+            for (status in listOf(R.string.status_recording, R.string.status_stopping, R.string.status_storage_error)) {
+                app.status = status
+                app.sessionOpen = status != R.string.status_storage_error
+                app.publish()
+                layout(activity.window.decorView, 411, 914)
+                assertEquals(bounds, buttons.map { Rect(it.left, it.top, it.right, it.bottom) })
+                assertEquals(0, scroll.scrollY)
+            }
+        }
+    }
+
+    @Test fun profileAndConsentDialogsKeepCompleteLargeFontButtonsAndScrollAccess() {
+        Robolectric.buildActivity(LargeFontActivity::class.java).setup().use { controller ->
+            val activity = controller.get()
+            for (trigger in listOf(R.id.select_profile, R.id.start_recording)) {
+                app.io.submit {}.get(5, TimeUnit.SECONDS)
+                shadowOf(Looper.getMainLooper()).idle()
+                activity.findViewById<Button>(trigger).performClick()
+                shadowOf(Looper.getMainLooper()).idle()
+                val dialog = ShadowAlertDialog.getLatestAlertDialog()
+                layout(dialog.window!!.decorView)
+                val scroll = dialog.findViewById<ScrollView>(R.id.dialog_scroll)
+                val content = scroll.getChildAt(0) as LinearLayout
+                assertTrue(scroll.canScrollVertically(1))
+                for (index in 1 until content.childCount) {
+                    val button = content.getChildAt(index) as Button
+                    assertTrue(button is TremorButton)
+                    assertEquals(button.text.length, button.layout.getLineEnd(button.layout.lineCount - 1))
+                    assertTrue(button.height >= button.layout.height + button.compoundPaddingTop + button.compoundPaddingBottom)
+                    repeat(button.layout.lineCount) { assertEquals(0, button.layout.getEllipsisCount(it)) }
+                    scroll.scrollTo(0, button.top)
+                    accessible(button)
+                }
+                dialog.dismiss()
+            }
         }
     }
 

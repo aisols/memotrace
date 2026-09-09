@@ -236,8 +236,11 @@ The second row comes from the [2026-09-09 Android verification](../../android/do
 decoded/checked. It is a scoped observation from a private scene, not a general
 capacity benchmark. These projections exclude backups, derivatives, indexes,
 bursts, replication, and filesystem overhead. The SPEC shorthand of about 8.6 GB/day
-and 3.1 TB/year was an assumption. Neither row predicts the pending `1440x1080 Q90`
-profile or other new profiles, which have no runtime evidence in this baseline.
+and 3.1 TB/year was an assumption. Neither row predicts `1440x1080 Q90` or the
+other current profiles. The [dated A33 profile evidence](../../android/docs/profiles-verification-2026-09-09.md)
+records one native sample per profile across all six profiles and 18 normal
+captures. These bounded observations are not a controlled benchmark, a battery
+or capacity guarantee, or verification of the final merged revision.
 
 Processing 28,800 incoming frames within eight hours means averaging one incoming
 frame per second across the overall pipeline; two to four hours means two to four
@@ -325,8 +328,10 @@ their lifecycle and consent gates from the data-protection design.
 | Index layout, SSD/HDD tiering, Compose/process topology | Server/deploy after capacity and operational measurements |
 | Shared service or E2EE/attested mode | New explicit product/security review before changing trust or deployment scope |
 
-The other Android session's public Gallery prototype, six profiles, and expanded
-session metadata are reported uncommitted work, not baseline behavior or verified
-device evidence. Final mapping must use that branch's reviewed result. Do not
-treat pending `ADR 0004` as accepted, infer new on-wire owner/device fields, or
-silently change the mobile storage choice as part of the server proposal.
+The Android public Gallery prototype, six profiles, and expanded session metadata
+are now implemented under accepted
+[ADR 0004](../../docs/decisions/0004-capture-profiles-public-pictures.md); acceptance
+is not device evidence. Android synchronization remains unimplemented, and final
+mapping must use the reviewed mobile revision. Do not infer new on-wire
+owner/device fields or silently change the mobile storage choice as part of the
+server proposal. Gallery consent is not consent for MemoTrace cloud analysis.

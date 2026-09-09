@@ -30,6 +30,12 @@ speech and advanced device interactions remain future work. Pairing currently
 uses a manually transported CLI payload, with no QR UI or Android enrollment flow.
 There is no published API release or supported client/server combination yet.
 
+The JPEG comparison prototype offers six profiles and public Gallery/My Files
+originals after explicit first-Start consent. The Android app has no network
+permission or synchronization, but Gallery/Photos/OneDrive may independently back
+up these images. See
+[profiles and storage](android/README.md#compare-profiles) and [security](SECURITY.md).
+
 The initial reference device is a dedicated Samsung Galaxy A33 running Android
 16 / One UI 8, with continued access to its existing applications. The reference
 server is Linux with a Ryzen 9 5950X, 64 GB RAM, and no GPU.

@@ -3,8 +3,10 @@
 Status: Proposed controls, recording the 2026-09-09 discussion. Trusted server
 processing is the agreed direction; detailed mechanisms and operational gates
 remain subject to review under [ADR 0005](../decisions/0005-server-foundation.md).
-The [security policy](../../SECURITY.md) describes current repository status.
-Server/contracts are scaffolds; this document asserts no deployed protection.
+[ADR 0006](../decisions/0006-ingestion-v0-1.md) accepts the implemented, unreleased
+Go ingestion slice and contract 0.1.0. The [security policy](../../SECURITY.md)
+describes its implemented boundaries and limits; the broader controls below remain
+proposals, not evidence of deployed protection.
 
 ## Purpose and Trust Boundary
 
@@ -186,8 +188,13 @@ enabling a provider, rather than infer them from this local policy.
 Gallery publication consent, MemoTrace cloud-analysis consent, and any future E2EE
 backup consent are independent. Google Photos, OneDrive, or another application
 may upload public Gallery files under its own settings; Gallery consent does not
-prevent that. Pending Android public-storage/profile work is not the merged
-baseline. Private versus public storage is an end-to-end product decision requiring
+prevent that. The Android profiles prototype implements public MediaStore Pictures
+after explicit first-Start in-app consent under
+[ADR 0004](../decisions/0004-capture-profiles-public-pictures.md), without Android
+network permission or synchronization. Legacy private originals are not silently
+published. Public images may survive uninstall/data clearing while the private
+index and legacy archive are lost; reinstall does not restore index or ownership.
+Private versus public storage remains an end-to-end product decision requiring
 coordination, not something a server-side encryption setting can settle.
 
 Local deletion cannot retract copies already transferred to another application,

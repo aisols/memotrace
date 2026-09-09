@@ -1,6 +1,6 @@
 # Recorder Architecture
 
-Implements accepted ADR 0003 without changing the product specification. This is
+Implements accepted ADRs 0003 and 0004, supplementing the product specification. This is
 a prototype implementation, not an independent review or device certification.
 
 ## Acquisition And Ownership
@@ -9,12 +9,17 @@ a prototype implementation, not an independent review or device certification.
 `RecorderService` owns it on the main thread. `RecorderCamera` isolates camera
 side effects; the production implementation binds rear CameraX `ImageCapture`
 and `ImageAnalysis` to the **service's** lifecycle, never the Activity's. Capture
-is explicitly JPEG, minimize-latency mode, requested JPEG quality 95, default
-CameraX still resolution/3A. Camera sensor/exposure/focus/rotation metadata, where
+is explicitly JPEG, minimize-latency mode, with an immutable CaptureSession/profile
+snapshot per Start. Matching 4:3/16:9 aspect and closest-lower-then-higher resolution
+fallback are explicit; requested, negotiated and actual dimensions are separate.
+JPEG quality is applied by CameraX, without application rescale/re-encode.
+See the [six-profile matrix](../README.md) and [storage protocol](media-storage.md).
+Camera sensor/exposure/focus/rotation metadata, where
 available, remains in the returned JPEG. No preview surface or JPEG re-encoding
 is introduced by application storage code.
 
-The Activity requests CAMERA and POST_NOTIFICATIONS permissions only after Start.
+First Start obtains explicit persistent public-Pictures consent before requesting
+CAMERA and POST_NOTIFICATIONS. The service also rejects Start without that consent.
 Camera consent is essential; notification denial does not silently grant camera
 consent or stop a permitted foreground service. The notification warning explains
 Android's active-apps visibility when notifications are denied. The service is
@@ -30,7 +35,7 @@ camera preemption and screen-off behavior remain required device experiments.
 ## Bounded Work
 
 - The scheduler's one slot spans pending-row creation, capture, checksum/fsync,
-  rename and SQLite commit. Busy ticks are discarded; no catch-up burst is stored.
+  MediaStore publication and SQLite commit. Busy ticks are discarded; no catch-up burst is stored.
 - A single application IO executor serializes recovery, commits and summaries.
   The caller permits only one acquisition chain, not an unbounded task stream.
 - ImageCapture uses a separate owned serial IO executor. Terminal callbacks cross
@@ -41,7 +46,7 @@ camera preemption and screen-off behavior remain required device experiments.
   The previous sample array is bounded at 768 integers. One atomic overwrite slot
   carries the newest result to the main thread; it cannot build a main-queue
   analysis backlog. No analysis images are persisted.
-- Checksums stream through a 32 KiB buffer. Captured JPEGs go to files, not app
+- Checksums stream through a 32 KiB buffer. Captured JPEGs go to a borrowed stream, not app
   byte arrays. Count queries use the indexed SQLite state, not a growing rewritten
   JSON/day manifest. Index summaries/startup consistency scans are O(archive size);
   persistence backpressure also bounds their cost at acquisition time.
@@ -77,6 +82,11 @@ and shuts down the disk executor only after pending work drains; it never interr
 a writer or waits on the UI thread. Do not change the CameraX version, capture
 format or executor ordering without rechecking this contract.
 
+The [stream-output re-audit](media-storage.md#pinned-camerax-contract) confirms
+FileUtil closes its input, not our output, on the same processing lane. The store
+owns the PFD/output, fsyncs and closes only after this barrier. Temporary cache
+scratch is recognized separately from the legacy file-output `.part` pattern.
+
 Results retain saved/camera-failure/storage-failure types. Delivered
 `ImageCapture.ERROR_FILE_IO` always invalidates storage readiness, including after
 Pause and successful partial cleanup. CameraX suppresses further processing results
@@ -104,7 +114,13 @@ cover-dependent branch, and regression tests compare dark/light capture sequence
 Only cover diagnostics and chosen cadence/configuration are stored; transient
 motion scores and sampled images are not archived.
 
-## Durable Commit Protocol
+## Historical V1 Protocol
+
+The following describes the shipped v1 archive, retained only for safe upgrade
+and legacy recovery. **New capture uses schema v2 and the MediaStore protocol in
+[Profiles And Media Storage](media-storage.md)**, not this private-file protocol.
+The v1-to-v2 transaction preserves existing rows, other tables and private JPEGs;
+legacy dimensions remain unknown and viewing is explicitly unavailable.
 
 The authoritative schema version 1 lives at
 `no_backup/recorder/index.sqlite`. Originals are UUID-named `.jpg` files alongside
@@ -148,23 +164,28 @@ begun; the Application performs startup recovery before enabling any camera
 session. Runtime storage failure requires process-start recovery, never recovery
 concurrent with a writer.
 
+## Timestamp Semantics
+
 Request wall time (`request_wall_ms`) and scheduling time (`request_elapsed_ms`,
 elapsedRealtime) are distinct. Settings include a session UUID: do not compare
 monotonic values across boots/sessions as universal timestamps. Neither timestamp
 is claimed to be an exact shutter instant. `saved_wall_ms` is the finish-operation
-wall time, or recovery time with `recovered=1`, not capture time. A clock change
+wall time, not capture time. V1 renamed-file recovery uses recovery time;
+v2 validated recovery preserves the already durable save time and sets recovered=1. A clock change
 does not change scheduling; last-save display follows the latest committed frame's
 insertion order, not the maximum wall clock (which could point at an older frame).
 
 ## Persisted Intent And UI
 
-Small SharedPreferences commits persist requested recording plus a stable error
+Small SharedPreferences commits persist profile ID, explicit public-Pictures consent,
+requested recording plus a stable error
 code, not resource IDs. A new process seeing requested=true displays interrupted
 and waits for another visible Start; it never claims the camera is running merely
 because intent was persisted. A count/status update acknowledges a save only
 after durable commit. Recovery failure disables Start until the archive problem
 is addressed and the app process restarted. Runtime storage failures also disable
-Start until process-start recovery has reconciled any pending file commit. Camera
+Start until process-start recovery has reconciled any pending file commit. Missing
+or changed older public images instead retain non-blocking historical status. Camera
 failures allow manual resume after their outstanding callback has drained.
 
 `TremorButton` uses pure `TapGesture`: DOWN anchors the original button, movement
@@ -176,7 +197,43 @@ CANCEL, even if the pointer subsequently returns. Therefore vertical tolerance
 inside a scrollable area is limited by the platform's drag threshold. No neighbor
 retargeting, long-press action or cumulative tremor-distance penalty is introduced.
 `performClick` remains native for accessibility and keyboard activation. Both
-controls remain in stable positions with >=88 dp minimum height,
+Start/Pause controls remain in stable positions with >=88 dp minimum height,
 large Russian text and high contrast. System bars/cutouts have explicit insets;
 wrap-content controls and a fallback ScrollView avoid large-font clipping. No
 activity screen-on flag, lock task mode, custom hardware keys or keyguard bypass.
+
+The additional profile/consent dialogs use native TremorButtons and a ScrollView;
+profile changes are disabled from accepted Start reservation through post-Pause persistence drain and rechecked
+in the application. The last-JPEG viewer grants only read access to one content
+URI, handling missing/inaccessible/legacy files and missing viewer applications.
+Public files may be backed up independently by Gallery/Photos/OneDrive; the UI no
+longer promises that images stay only on the phone.
+
+Full history reconciliation runs only before capture or while paused/drained;
+an in-progress idle sweep gates Start and a request while recording is deferred.
+The single-item viewer check remains available during recording. Fatal refresh
+SQLite errors synchronously request service stop/drain and remain terminal even
+if an already captured frame later commits. The accepted Start profile/session
+is reserved on main before service delivery; the service consumes its private
+one-use token and cannot replay it after process death. See media-storage.md for
+the AOSP provider transaction audit, fixture provenance ledger and trash handling.
+
+Pause targets a session UUID, including unique immutable notification intents;
+canceling an unconsumed reservation queues no stale generic Pause. All service
+stop requests are start-ID-aware. Pending cleanup requires physical unlink
+evidence from a retained descriptor in addition to its provider batch. At startup,
+unvalidated missing/unproven records become terminal quarantine tombstones, with
+retained private provenance and a separate diagnostic count, not successful saves.
+They do not block new sessions or get retried/deleted automatically. Genuine DB,
+provider and current-write failures remain fatal, as does invalid validated data;
+provider rename-before-SQL-update can otherwise leave a linked JPEG orphan.
+See media-storage.md for conservative recovery limits and native residue reporting.
+
+The failed A33 gallery run exposed retained-descriptor fstat ENOENT, not a reliable
+POSIX unlink signal on that FUSE implementation. UnlinkStatus is now tri-state;
+ENOENT means UNKNOWN, while unrelated errno failures remain errors. After a camera
+abort/failure and the existing writer barrier, only typed cleanup uncertainty is
+quarantined without disabling the next Start. It never turns the aborted frame
+into a saved image or hides ERROR_FILE_IO. Runner cleanup returns/logs expected
+residues and preserves normal test completion; real cleanup failures remain strong
+run errors. See a33-gallery-failure-2026-09-09.md; no new device pass is claimed.

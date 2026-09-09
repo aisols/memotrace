@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.database.sqlite.SQLiteDatabase
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityNodeInfo
@@ -27,6 +28,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.memotrace.capture.CaptureProfile
+import org.memotrace.capture.CaptureSession
 import org.memotrace.recorder.capture.RecorderService
 import org.memotrace.recorder.storage.FrameRequest
 import org.memotrace.recorder.storage.FrameStore
@@ -44,16 +47,25 @@ class RecorderDeviceTest {
             Manifest.permission.POST_NOTIFICATIONS,
         )
 
-    private fun awaitState(predicate: () -> Boolean) {
+    private fun awaitState(
+        description: String = "recorder state",
+        predicate: () -> Boolean,
+    ) {
         val instrument = InstrumentationRegistry.getInstrumentation()
         val deadline = System.nanoTime() + 45_000_000_000L
         val done = AtomicBoolean(false)
+        var diagnostic = ""
         while (System.nanoTime() < deadline) {
-            instrument.runOnMainSync { done.set(predicate()) }
+            instrument.runOnMainSync {
+                done.set(predicate())
+                val app = instrument.targetContext.applicationContext as RecorderApplication
+                diagnostic = "ready=${app.ready}; sessionOpen=${app.sessionOpen}; canStart=${app.canStart}; " +
+                    "status=${app.getString(app.status)}; saved=${app.summary.count}; quarantined=${app.summary.quarantinedCount}"
+            }
             if (done.get()) return
             Thread.sleep(25)
         }
-        throw AssertionError("Recorder state did not arrive within 45 seconds")
+        throw AssertionError("Timed out waiting for $description within 45 seconds: $diagnostic")
     }
 
     private fun accessibilityClick(
@@ -80,22 +92,33 @@ class RecorderDeviceTest {
     @Test fun storageRoundTripRecoveryAndShadowRetention() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val root = File(context.cacheDir, "storage-test-${UUID.randomUUID()}")
+        val media = TestMediaNamespace(context)
         try {
-            var id = ""
+            var uri = ""
             val bitmap = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888)
-            FrameStore(root, checkpoint = { if (it == "renamed") error("simulated_death") }).use { store ->
-                val frame = store.prepare(FrameRequest(123, 456, 1_000, "rear;quality=95", "SHADOW;true"))
-                id = frame.id
-                frame.partial.outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.JPEG, 95, it)) }
+            val session = CaptureSession(CaptureProfile.REFERENCE, 123)
+            FrameStore(root, media.destination, checkpoint = { if (it == "published") error("simulated_death") }).use { store ->
+                val frame = store.prepare(FrameRequest(123, 456, 1_000, "rear;quality=95", "SHADOW;true", session, 16, 16))
+                uri = frame.uri
+                assertTrue(bitmap.compress(Bitmap.CompressFormat.JPEG, 95, frame.output.stream))
                 assertThrows(IllegalStateException::class.java) { store.finish(frame, 789) }
             }
             bitmap.recycle()
-            val original = File(root, "$id.jpg").readBytes()
-            FrameStore(root).use { store ->
+            val original = media.destination.openRead(uri).use { it.readBytes() }
+            assertFalse(media.destination.inspect(uri)!!.pending)
+            assertEquals(media.prefix + session.relativePath, media.destination.inspect(uri)!!.path)
+            media.destination.openRead(uri).use {
+                val decoded = checkNotNull(BitmapFactory.decodeStream(it))
+                assertEquals(16, decoded.width)
+                assertEquals(16, decoded.height)
+                decoded.recycle()
+            }
+            FrameStore(root, media.destination).use { store ->
                 store.recover(999)
                 store.recover(1_000)
                 assertEquals(1L, store.summary().count)
-                assertArrayEquals(original, File(root, "$id.jpg").readBytes())
+                assertArrayEquals(original, media.destination.openRead(uri).use { it.readBytes() })
+                assertEquals(16, store.summary().last!!.width)
             }
             SQLiteDatabase.openDatabase(File(root, "index.sqlite").path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
                 db.rawQuery("SELECT * FROM frames", null).use { row ->
@@ -113,7 +136,10 @@ class RecorderDeviceTest {
                 }
             }
         } finally {
-            root.deleteRecursively()
+            val retained = media.cleanup()
+            assertEquals(retained.isNotEmpty(), media.hasProvenance())
+            retained.forEach { assertTrue(media.hasFixture(it.name)) }
+            if (retained.isEmpty()) root.deleteRecursively()
         }
     }
 
@@ -121,6 +147,7 @@ class RecorderDeviceTest {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as IsolatedRecorderApplication
         awaitState { app.ready && !app.sessionOpen }
         ActivityScenario.launch(MainActivity::class.java).use {
+            awaitState { app.canStart }
             onView(withId(R.id.start_recording)).check(matches(withText(R.string.start)))
             onView(withId(R.id.start_recording)).check(matches(isEnabled()))
             onView(withId(R.id.pause_recording)).check(matches(withText(R.string.pause)))
@@ -128,7 +155,11 @@ class RecorderDeviceTest {
             it.recreate()
             onView(withId(R.id.saved_count)).check(matches(withText(app.getString(R.string.saved_count, app.summary.count))))
             it.onActivity { activity ->
-                activity.startService(Intent(activity, RecorderService::class.java).setAction(RecorderService.ACTION_PAUSE))
+                activity.startService(
+                    Intent(activity, RecorderService::class.java)
+                        .setAction(RecorderService.ACTION_PAUSE)
+                        .putExtra(RecorderService.EXTRA_SESSION, app.sessionId),
+                )
             }
             awaitState { !app.sessionOpen }
         }
@@ -136,10 +167,12 @@ class RecorderDeviceTest {
 
     @Test fun foregroundCaptureSurvivesActivityStopAndPauses() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as IsolatedRecorderApplication
-        awaitState { app.ready && !app.sessionOpen }
+        awaitState("foreground test initial readiness") { app.ready && !app.sessionOpen }
         val before = app.summary.count
+        InstrumentationRegistry.getInstrumentation().runOnMainSync { assertTrue(app.consentToPublicPictures()) }
         ActivityScenario.launch(MainActivity::class.java).use { activity ->
             try {
+                awaitState { app.canStart }
                 activity.onActivity { accessibilityClick(it, R.id.start_recording) }
                 awaitState { app.summary.count >= before + 1 && app.status == R.string.status_recording }
                 activity.recreate()
@@ -166,7 +199,64 @@ class RecorderDeviceTest {
             } finally {
                 activity.moveToState(Lifecycle.State.RESUMED)
                 activity.onActivity {
-                    it.startService(Intent(it, RecorderService::class.java).setAction(RecorderService.ACTION_PAUSE))
+                    it.startService(
+                        Intent(it, RecorderService::class.java)
+                            .setAction(RecorderService.ACTION_PAUSE)
+                            .putExtra(RecorderService.EXTRA_SESSION, app.sessionId),
+                    )
+                }
+                awaitState { !app.sessionOpen }
+            }
+        }
+    }
+
+    @Test fun sixRealCameraProfilesRecordRequestedNegotiatedAndActualSizes() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as IsolatedRecorderApplication
+        awaitState { app.ready && !app.sessionOpen }
+        ActivityScenario.launch(MainActivity::class.java).use { activity ->
+            try {
+                for (profile in CaptureProfile.entries) {
+                    awaitState("next profile ready: ${profile.id}") { app.canStart }
+                    val before = app.summary.count
+                    activity.onActivity {
+                        assertTrue(app.consentToPublicPictures())
+                        assertTrue(app.selectProfile(profile.id))
+                        accessibilityClick(it, R.id.start_recording)
+                    }
+                    awaitState { app.summary.count > before && app.status == R.string.status_recording }
+                    activity.onActivity { accessibilityClick(it, R.id.pause_recording) }
+                    awaitState("profile Pause drain") { !app.sessionOpen }
+                    assertTrue("Pause disabled storage: ${app.getString(app.status)}", app.ready)
+                    assertEquals(R.string.status_paused, app.status)
+                    assertTrue(app.negotiatedSize.isNotEmpty())
+                    val saved = checkNotNull(app.summary.last)
+                    assertTrue(saved.path!!.contains("/${profile.id}/"))
+                    assertTrue(
+                        saved.path!!
+                            .substringBeforeLast('/')
+                            .substringAfterLast('/')
+                            .startsWith(profile.id),
+                    )
+                    assertTrue(saved.width!! > 0 && saved.height!! > 0)
+                    app.createDestination().openRead(saved.uri!!).use {
+                        val decoded = checkNotNull(BitmapFactory.decodeStream(it))
+                        assertEquals(saved.width, decoded.width)
+                        assertEquals(saved.height, decoded.height)
+                        decoded.recycle()
+                    }
+                    android.util.Log.i(
+                        "MemoTraceTest",
+                        "profile=${profile.id};requested=${profile.width}x${profile.height};" +
+                            "quality=${profile.quality};negotiated=${app.negotiatedSize};actual=${saved.width}x${saved.height};bytes=${saved.bytes}",
+                    )
+                }
+            } finally {
+                activity.onActivity {
+                    it.startService(
+                        Intent(it, RecorderService::class.java)
+                            .setAction(RecorderService.ACTION_PAUSE)
+                            .putExtra(RecorderService.EXTRA_SESSION, app.sessionId),
+                    )
                 }
                 awaitState { !app.sessionOpen }
             }

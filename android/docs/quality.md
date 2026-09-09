@@ -1,5 +1,198 @@
 # Android Quality Gates
 
+## Latest Profile Evidence
+
+[MAIN's 2026-09-09 profile record](profiles-verification-2026-09-09.md) covers code
+`6445bad`: clean command passed 101 tasks; 23 core + 82 app = 105 tests, zero
+failures/skips; native 10/10 and CI passed. Core coverage remains 123/123 lines
+(100%), 151/152 branches (99.34%), with unchanged 90/80 thresholds. The 81-app-test
+snapshots and earlier failures below are historical, not the final counts.
+The dated record includes artifact identity, retention evidence and limitations;
+it does not establish a pass for future revisions.
+
+## Connected Host Safety
+
+The [host uninstall audit and commands](connected-test-safety.md) are a separate
+gate from runtime fixture isolation. MAIN confirmed the package absent after the
+failed connected run; runner-stage ledger retention did not prove survival past
+AGP/UTP teardown. Component defaults now retain APKs and forbid incompatible-APK
+uninstall, with prerequisite and first-action guards on connected test tasks.
+
+Earlier implementation-owner local verification on 2026-09-09, without device access:
+
+| Check | Result |
+| --- | --- |
+| `:app:verifyConnectedTestSafety` default | Passed |
+| `:app:verifyConnectedTestSafetyWiring` default | Passed on actual debug/aggregate tasks; only safety guards executed |
+| `-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=false` | Exit 1, safety gate rejected before DeviceProvider/install |
+| `-Pandroid.experimental.testOptions.uninstallIncompatibleApks=true` | Exit 1, safety gate rejected before DeviceProvider/install |
+| Isolated debug and release-test-build-type wiring | Both passed, including actual AGP factory flag checks |
+| Seven isolated unsafe/missing/empty/inline-guard negatives | All rejected as expected, no device actions |
+| Unchanged README command with `clean` | Passed, 101 tasks executed (one added no-device wiring task) |
+| Core/app unit tests | 23 + 81 passed; zero skipped/failed/errors |
+| Core coverage | 123/123 lines, 151/152 branches; unchanged 90/80 minimum gates |
+| Existing quality-negative verifier | Positive plus all six negative cases passed expected checks |
+
+Safety evidence: `/tmp/opencode/memotrace-connected-safety-y391_w5z/`.
+Existing quality-gate repetition: `/tmp/opencode/memotrace-quality-x3cccv4e/`.
+An initial safety-verifier run expected the custom diagnostic for empty retention;
+AGP correctly rejected the empty boolean earlier during plugin configuration. The
+verifier now requires that exact AGP diagnostic for this case; other negatives
+still require the custom safety rejection. No gate was weakened or test disabled.
+
+CI retains its existing full quality command and adds the independent no-device
+safety regression script. No runtime/native/FUSE source, versionCode or dependency
+pin changed in this correction. At that snapshot, APK hashes were the FUSE hashes
+below.
+No connected task or DeviceProvider action was executed by the implementation
+owner. MAIN's subsequent review and reruns are recorded in the latest profile
+evidence above.
+
+## Profile Storage Review Fixes
+
+Earlier implementation-owner local verification on 2026-09-09 for versionCode 2 /
+versionName 0.2.0 including the A33/FUSE unlink and Pause adaptation, not independent review or
+device evidence. The toolchain pins and all
+existing gates are unchanged. [Storage protocol and limitations](media-storage.md)
+supersede the v1 private-file protocol for new captures; historical evidence below
+and `verification-2026-09-09.md` are not new-profile device results.
+
+```bash
+./gradlew --no-daemon clean :capture-core:check :app:testDebugUnitTest :app:lintDebug spotlessCheck :app:assembleDebug :app:assembleDebugAndroidTest
+python3 tools/verify-quality-failures.py --temp-parent /tmp/opencode
+```
+
+Both passed using the documented JDK/SDK environment. Clean command: 100 tasks
+executed. Negative verifier: isolated positive succeeded, all six negative copies
+failed for their intended nonempty/zero-skips gate diagnostic. No verifier change
+was needed. That local evidence: `/tmp/opencode/memotrace-quality-swlisarr/`.
+`/tmp/opencode/memotrace-quality-eyfhg1_p/` is the preceding quarantine iteration.
+Earlier `/tmp/opencode/memotrace-quality-_5iq4crl/`, `/tmp/opencode/memotrace-quality-bq4qx9w_/` and
+`/tmp/opencode/memotrace-quality-_lh7u0ov/` predate the latest corrections.
+
+| Check | Local result |
+| --- | --- |
+| Pure-core tests | 23 passed, zero skipped/failed/errors |
+| App tests | 81 passed, zero skipped/failed/errors |
+| Core lines | 123/123, 100% |
+| Core branches | 151/152, 99.34% |
+| Required core gates | >=90% lines, >=80% branches, unchanged; no exclusions |
+| Android lint | Passed, no issues |
+| Spotless/ktlint | Passed |
+| App and instrumentation APK assembly | Passed |
+| Both APK signatures | Build-Tools 36.0.0 apksigner verified v2 signatures |
+| App identity/permissions | aapt2 confirms org.memotrace.recorder, 2/0.2.0, API 36; no network/broad photo permission |
+| Instrumentation execution | Not run by implementation owner; ten tests compiled |
+| Previous-revision A33 run by MAIN | 2 passed, 8 failed, zero skipped; runner cleanup then crashed. Adaptation rerun was pending at this snapshot |
+| Hosted CI and independent review | Not performed by implementation owner |
+
+Those 81 app tests comprised 22 storage/migration/fault/reconciliation,
+11 ContentResolver adapter contract/resource, 1 pinned CameraX stream/scratch contract, 3 disk-barrier,
+27 lifecycle, 8 profile/consent/viewer and 9 gesture/accessibility/layout tests.
+Coverage also includes immutable core profile/session tests; existing scheduling
+and tremor tests remain. Native-graphics unit tests exercise wrapped dialog text
+and scrolling at 2x font in a 240x360 dp window. No safety lint is suppressed;
+UseKtx suppressions only retain Boolean SharedPreferences commit failure signals.
+
+Fakes test ownership predicates, null/error responses, resource closure, every
+index/provider crossing, same-size edit limitation and non-blocking historical
+tombstones. They do not prove Android MediaProvider durability, filesystem power
+loss, OEM negotiated dimensions or encoder quality. Ten native tests compile:
+synthetic MediaStore save/open/decode/recovery, idle UI recreation, background
+foreground-service capture/Pause, all six real profiles, pending-delete assertion
+protection on published/moved items, creation-ledger/lost-URI sentinel protection,
+concurrent publication/deletion with inode unlink evidence, missing-row/lost-witness
+ledger retention, trash/restore, and insert-before-first-open Application recovery.
+The last case accepts eager or lazy providers only with ready=true, zero successful
+saves and either proven removal or a retained quarantine tombstone; recovery
+cannot call openWrite or force file materialization. UUID-isolated private
+state and creation-ledger-based MediaStore cleanup are mandatory; normal archives
+are never test cleanup targets. Operator scene/backup approval and initial unlock
+remain prerequisites, with the existing scoped test-only keep-awake fixture.
+
+SDK XML/parser and unstripped CameraX JNI warnings remain visible/nonfatal, as in
+the previous slice. Main owns latest-revision device, CI and final merge gates.
+
+Both local verification runs of the then-current FUSE adaptation passed; no local
+failure or skipped test remains. The earlier quarantine iteration had one failing adapter regression: the test
+provider opened every file read/write even for an `r` request, creating the missing
+fixture instead of returning FileNotFoundException. Its mode handling now follows
+the request; the lazy destination fake also materializes only at openWrite.
+That test was corrected, not disabled. Earlier formatting/inference issues were
+also fixed without suppression. The subsequent MAIN-owned native run failed as
+recorded in [A33 gallery evidence](a33-gallery-failure-2026-09-09.md). Read/preserved
+that JUnit report before clean builds removed it. The adapted native provider
+tests had only compiled at that snapshot; the AOSP audit and local checks were not
+a Samsung pass.
+
+Regression details: plain delete is replaced by a non-yielding assert/delete
+batch with expected counts and no exception continuation/fallback. Publication
+acknowledgement survives subsequent absence/access loss. Trash retains historical
+metadata without viewing eligibility. Fatal SQLite refresh failure stops/drains
+an active service even if IO subsequently recovers and a late frame commits.
+Full history checks defer through recording and post-Pause disk drain; a blocking
+old-item fake cannot consume the active camera watchdog. Start snapshots/reserves
+on main before service delivery, rejects stale/forged/duplicate commands and
+profile changes, and releases on cancellation/launch failure without process replay.
+
+Latest regressions drive real UI Start-A/Pause/Start-B listeners before service
+delivery, require no queued generic Pause after synchronous cancellation, and
+verify service-level start-ID forwarding before accepting B. UI and notification
+Pause are session-scoped; notification PendingIntents are distinct across sessions.
+Unknown/rejected service commands and internal stops are all start-ID-aware.
+
+Cleanup now requires a retained, initially linked regular-file descriptor with
+stable device/inode and zero link count, not only a successful batch or absent
+provider row. A fake provider models deleted rows with still-linked artifacts;
+tests require retained quarantine/provenance and a closed witness, not a successful
+save. Robolectric fstat itself returns stub zero values, so these contract
+tests inject inode/link-count facts rather than claiming Android filesystem proof.
+Native races drain both workers before testing the retained inode, then verify
+ledger removal only after proven unlink, or ledger retention plus instrumentation
+status reporting on uncertainty. The missing-row/lost-witness test intentionally
+retains its private diagnostic ledger. A native test pass count is NOT a claim
+of residue-free cleanup. OEM/FUSE evidence limitations remain MAIN-owned gates.
+
+UnlinkWitness now reports PROVEN_UNLINKED / STILL_LINKED / UNKNOWN. Adapter tests
+inject fstat ENOENT both initially and after deletion, requiring UNKNOWN and closed
+FDs; EBADF/EIO/EACCES and known non-ENOENT descriptor-open causes remain real errors.
+The lifecycle regression saves one frame, pauses/aborts another with UNKNOWN,
+requires ready/PAUSED, keeps saved count unchanged and quarantine count separate,
+then selects a new profile and successfully starts/saves again. Companion tests
+keep ERROR_FILE_IO fatal despite successful quarantine, and keep EBADF and failed
+quarantine DB updates fatal. No CameraX ordering, cadence or watchdog change.
+
+Expected fixture uncertainty now returns/logs per-fixture residue reports rather
+than throwing through runner finish. The runner preserves JUnit output/results,
+appends unresolved-cleanup diagnostics and always calls super.finish. Real provider,
+identity/DB/close errors or an undrained writer set a strong failed-run report with
+cause/stack; they are not ignored. Isolated index/preferences stay when residue
+remains. Native row, ownership, sentinel, trash and race assertions are retained,
+with tri-state evidence replacing the unsupported universal POSIX assumption.
+These runner/device behaviors then awaited MAIN's reviewed rerun; see the latest
+profile evidence above.
+
+The earlier global fail-closed treatment of absent unvalidated pending output was
+a recoverability regression, not an acceptable limitation. Startup now persists
+state=2 (QUARANTINED), availability=CLEANUP_UNPROVEN, with identity/URI/provenance
+intact. Quarantine is excluded from successful/available/last-image totals, shown
+separately through `quarantined_count`, and never automatically retried or deleted.
+Regression expectations at prepared/failed-insert were corrected to require
+successful recovery, not repeated failure. Tests cover lazy insert-before-open,
+idempotent startup, no provider access for already-quarantined rows, new capture
+count=1 rather than counting uncertainty, UI diagnostics, and fatal SQLite failure
+while attempting the quarantine update. After acknowledged abort and writer drain,
+typed cleanup uncertainty also quarantines without disabling the next Start.
+Namespace/ownership errors, real provider failures, invalid validated pending data
+and actual current-session IO (including ERROR_FILE_IO) remain fatal;
+recovery still rejects live-writer use. No broad exception-to-quarantine conversion,
+path scan or uncertain-artifact deletion. Test fixture cleanup scope is unchanged.
+
+Earlier local clean-build SHA-256 (debug artifacts, not the final UI APK or a release):
+
+- `app-debug.apk`: `c4dfa2499399b95525af7e260387d8e1ea9618efc5095d59ce47b865bf5bc756`
+- `app-debug-androidTest.apk`: `23bb3896da7c4bc63cae6bd677a351eb8599706f9dafc6cea303fc80a0afbd22`
+
 ## Toolchain
 
 | Tool/dependency | Pin |
@@ -24,8 +217,8 @@ Selected from official [AGP 8.13 compatibility](https://developer.android.com/bu
 and [CameraX stable releases](https://developer.android.com/jetpack/androidx/releases/camera).
 These are intentional stable API-36 pins, not assertions that they are the latest.
 The four explicit dependency-update advisory suppressions preserve this tested
-matrix; they do not suppress Android safety checks. The one UseKtx suppression
-preserves SharedPreferences.commit's Boolean failure result, which KTX discards.
+matrix; they do not suppress Android safety checks. The SharedPreferences UseKtx suppressions
+preserve SharedPreferences.commit's Boolean failure result, which KTX discards.
 Lint otherwise treats warnings as errors, with no baseline.
 
 ### Exact Temurin CI Pin
@@ -78,8 +271,9 @@ No host SDK files are removed or metadata altered.
 API-36 baseline still fails lint. SDK/target upgrades require explicit reviewed
 matrix changes, behavior review and device verification, not unrelated runner-image
 updates. No lint suppression, baseline, diagnostic filtering or gate reduction is
-added. Independent review and the main agent's final hosted rerun remain pending;
-this environment-only correction has not established a new CI or device pass.
+added. At this historical PR #2 snapshot, independent review and MAIN's final
+hosted rerun were pending; the environment-only correction had not itself
+established a new CI or device pass.
 
 ## Wrapper Provenance
 
@@ -247,10 +441,14 @@ cannot revive an earlier cancelled gesture.
 `.github/workflows/android.yml` runs the local command on Ubuntu 24.04 with pinned
 action commits and tool versions. It assembles instrumentation but does not claim
 hosted runners are the reference device. Hosted CI has not been run by the builder.
-Independent review and bounded main-agent device observations are recorded in the
-[dated evidence](verification-2026-09-09.md), with remaining limitations. Latest-revision
-CI and unresolved required checks remain merge gates; [PR #2](https://github.com/aisols/memotrace/pull/2)
-is authoritative for the pending hosted rerun. Existing server/contracts have no
+Historical [PR #2](https://github.com/aisols/memotrace/pull/2) review and bounded
+MAIN device observations are in the [v1 evidence](verification-2026-09-09.md),
+with remaining limitations; its hosted rerun was pending at that snapshot.
+For current profile status, [PR #3](https://github.com/aisols/memotrace/pull/3) is
+authoritative. [MAIN's dated profile record](profiles-verification-2026-09-09.md)
+records `6445bad` with [CI run 34378499995 passed](https://github.com/aisols/memotrace/actions/runs/34378499995),
+not a guarantee for future HEADs. Latest-revision CI and unresolved required checks
+remain merge gates. Existing server/contracts have no
 executable targets; cross-component tests are not applicable to this no-network slice.
 The Gradle action v5.0.0 reference is the peeled official commit
 `4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2`, resolved using
