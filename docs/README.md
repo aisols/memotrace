@@ -1,9 +1,11 @@
 # Documentation
 
 - [Product specification](../SPEC.md): the original product baseline.
+- [Repository workflow](../AGENTS.md): agent ownership, review, and verification gates.
 - [Architecture](architecture/README.md): ownership, dependencies, builds, and extraction.
 - [Repository decision](decisions/0001-component-boundaries.md): accepted component boundaries.
 - [Licensing decision](decisions/0002-licensing.md): AGPL-3.0-only and its limits.
+- [Capture prototype decision](decisions/0003-capture-prototype.md): adaptive JPEG and shadow-mode occlusion diagnostics.
 - [Interaction requirements](ux/README.md): recorder behavior and accessibility.
 - [Licensing policy](licensing.md): contributions, third-party material, and releases.
 

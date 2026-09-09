@@ -19,6 +19,8 @@ component. A repository split must not require application changes.
 
 ## Changes and Verification
 
+Follow the repository-wide [workflow rules](AGENTS.md).
+
 Keep changes focused and include the relevant tests and documentation. State
 which checks ran and which could not run. There are no application build or test
 commands yet; add reproducible commands to the component README when its first

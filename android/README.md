@@ -20,6 +20,11 @@ handling require explicit hardware verification.
 `app/src/androidTest/` device tests. These directories contain no implementation.
 There is no Gradle project or build command yet.
 
+The Linux host toolchain and wireless ADB connection have been prepared. See
+[development environment](docs/development.md) for the installed versions,
+environment variables, verification commands, and pairing/reconnection procedure.
+This does not mean that an application build or recorder behavior has been tested.
+
 When implementation starts, keep the Gradle Wrapper, settings, dependency
 configuration, and build/test instructions inside this directory. The project
 must build after this directory is extracted, without a parent Gradle project,
