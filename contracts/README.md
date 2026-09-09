@@ -1,23 +1,49 @@
 # MemoTrace Contracts
 
 Autonomous, language-neutral source of truth for the public protocol and persisted
-exchange formats. No API, schema, contract version, or release exists yet.
+exchange formats. **Protocol `0.1.0` is an implemented, unreleased development
+contract**, with OpenAPI 3.1, JSON Schema 2020-12, and executable validation.
+There is no published release or supported client/server combination yet. Schema
+checks do not prove deployed server behavior, filesystem durability, or device sync.
 
-The [initial ingestion design](docs/ingestion-design.md) records proposed semantic
-choices and open questions for pairing, durable upload receipts, restart/retry,
-and authorized original retrieval. It is not a published protocol or schema.
+The [normative protocol](docs/protocol.md) defines pairing, registration, exact
+JPEG upload/read, stable historical receipts, errors, and content invariants.
+The [design/status](docs/ingestion-design.md) separates this slice from future work.
 
 ## Layout
 
-- `openapi/`: canonical public HTTP API definitions.
-- `schemas/`: manifest and transferable metadata JSON Schemas.
+- `openapi/ingestion.json`: canonical public HTTP API definition (JSON).
+- `schemas/ingestion.schema.json`: single canonical schema library; select `$defs`.
 - `examples/`: synthetic valid/invalid examples with expected outcomes.
 - `tests/`: schema validation and public-contract consistency checks.
+- `tools/`: component-local validation entry point and offline reference registry.
+- `VERSION`, `pyproject.toml`, `uv.lock`: wire version and pinned validation tools.
 
-Define device pairing, upload/retry semantics, integrity checks, archive
-acknowledgments, queries, evidence responses, and status here. Specify the meaning
-of identifiers, timestamps, checksums, errors, and compatibility rules alongside
-the machine-readable formats.
+## Quality command
+
+Prerequisites: Python 3.12+ and **uv 0.11.3**. `.python-version` selects Python 3.12
+for the reproducible baseline. Run from `contracts/` or an isolated copy of it:
+
+```sh
+uv run --locked python -m tools.verify
+```
+
+The first run installs dependencies from `uv.lock`; subsequent validation is
+offline, with no remote schema resolution. To require offline dependency use too,
+after provisioning the lock's wheels and interpreter:
+
+```sh
+uv run --locked --offline python -m tools.verify
+```
+
+The command runs real `jsonschema` (including runtime date-time formats) and
+`openapi-spec-validator`, all fixture expectations, reference/HTTP drift checks,
+and boundary matrices, including exact raw-decimal and Unicode interoperability
+regressions and the two operation-specific 401 challenges. It exits nonzero on
+failures, skips, or an empty suite.
+See [quality requirements](docs/quality.md) for coverage and limitations. No
+sibling sources, cloud account, running server, database, or phone is needed.
+`.venv` and tooling caches are ignored; `UV_CACHE_DIR` can point outside the tree.
 
 Server ORM classes, SQL migrations, internal job payloads, and mobile UI models
 do not belong here. Avoid defining speculative endpoint families before their
@@ -34,10 +60,12 @@ source version/revision and checksum. Snapshot refresh is an explicit operation;
 consumers must not edit generated copies or require `../contracts` at build time.
 Do not require a live server to generate clients during an ordinary build.
 
-Add a `VERSION` file and release procedure when the first contract is established.
+See the [controlled snapshot/release procedure and compatibility policy](docs/releases.md).
 Protocol/schema versions are independent of client/server application versions.
-Test supported combinations once consumers exist, including persisted recordings
-that may be uploaded by an older phone application.
+Every object is closed in 0.1.0, including nested requests: unknown fields fail
+validation. Even an additive field needs compatibility/version review; a patch
+version is not permission to add fields. Test supported combinations once
+consumers exist, including persisted recordings uploaded by older applications.
 
 ## License
 

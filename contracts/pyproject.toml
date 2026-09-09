@@ -1,0 +1,14 @@
+[project]
+name = "memotrace-contract-checks"
+version = "0.1.0"
+description = "Standalone offline checks for the MemoTrace development wire contract"
+requires-python = ">=3.12"
+license = "AGPL-3.0-only"
+dependencies = [
+    "jsonschema[format-nongpl]==4.25.1",
+    "openapi-spec-validator==0.7.2",
+]
+
+[tool.uv]
+package = false
+required-version = "==0.11.3"

@@ -1,10 +1,12 @@
 # Server Foundation Design
 
-Status: Proposed, recorded 2026-09-09 under
-[ADR 0005](../../docs/decisions/0005-server-foundation.md). Go core plus Python
-inference is the preferred recommendation for review, not a finalized or
-implemented stack. No server build, API, schema, released version, test suite,
-selected model, or dependency/runtime version is established by this note.
+Status: The broader foundation remains proposed under
+[ADR 0005](../../docs/decisions/0005-server-foundation.md). An **unreleased first
+ingestion slice** now implements Go 1.26.4, PostgreSQL 15, TLS pairing/auth,
+contract 0.1.0 manifests/originals/receipts, RLS, filesystem recovery and initial
+pending jobs. See the executable [README](../README.md), [storage boundary](storage.md)
+and [quality gates](quality.md) for current behavior/evidence. Python inference,
+models, retrieval, leases and subsequent stages remain recommendations.
 
 ## Product Role and Baseline
 
@@ -300,7 +302,8 @@ Contracts own schema/examples/conformance definitions; cross-component retry and
 compatibility scenarios belong in [integration/](../../integration/README.md).
 Test mismatched supported clients/servers and persisted old recordings, not just
 matching checkouts. Each first executable target brings documented component-local
-build/lint/style/test commands and applicable CI; no targets exist here yet.
+build/lint/style/test commands and applicable CI; the ingestion targets now exist
+and their current checks are documented in [quality gates](quality.md).
 Independent main-agent verification and review remain merge gates.
 
 Before relying on phone eviction or operational recovery, prove backup restoration

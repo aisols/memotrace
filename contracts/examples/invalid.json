@@ -1,0 +1,23 @@
+[
+  {"name": "version-mismatch", "definition": "Health", "instance": {"status": "ok", "contract_version": "0.2.0"}, "keyword": "const", "path": ["contract_version"]},
+  {"name": "invitation-plaintext", "definition": "ServerOrigin", "instance": "http://memotrace.example", "keyword": "pattern", "path": []},
+  {"name": "uppercase-uuid", "definition": "UUID", "instance": "01234567-89AB-cdef-0123-456789abcdef", "keyword": "pattern", "path": []},
+  {"name": "uppercase-hash", "definition": "SHA256", "instance": "ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef0123456789", "keyword": "pattern", "path": []},
+  {"name": "token-padding", "definition": "Token", "instance": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "keyword": "maxLength", "path": []},
+  {"name": "token-nonzero-pad-bits", "definition": "Token", "instance": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB", "keyword": "pattern", "path": []},
+  {"name": "impossible-calendar-date", "definition": "UTCDateTime", "instance": "2026-02-30T12:00:00Z", "keyword": "format", "path": []},
+  {"name": "utc-offset-instead-of-z", "definition": "UTCDateTime", "instance": "2026-09-09T12:00:00+00:00", "keyword": "pattern", "path": []},
+  {"name": "pair-empty-name", "definition": "PairRequest", "instance": {"invitation_token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "device_name": ""}, "keyword": "minLength", "path": ["device_name"]},
+  {"name": "pair-unknown-owner-field", "definition": "PairRequest", "instance": {"invitation_token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "device_name": "Synthetic", "owner_id": "11111111-1111-1111-1111-111111111111"}, "keyword": "additionalProperties", "path": []},
+  {"name": "profile-quality-zero", "definition": "Profile", "instance": {"id": "synthetic", "requested_width": 1, "requested_height": 1, "jpeg_quality": 0}, "keyword": "minimum", "path": ["jpeg_quality"]},
+  {"name": "profile-unknown-property", "definition": "Profile", "instance": {"id": "synthetic", "requested_width": 1, "requested_height": 1, "jpeg_quality": 85, "sensor_time": 123}, "keyword": "additionalProperties", "path": []},
+  {"name": "manifest-empty", "definition": "ManifestRequest", "instance": {"frames": []}, "keyword": "minItems", "path": ["frames"]},
+  {"name": "metadata-missing-frame-id", "definition": "FrameMetadata", "instance": {"request_wall_ms": 0, "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "byte_length": 631}, "keyword": "required", "path": []},
+  {"name": "metadata-null-required-clock", "definition": "FrameMetadata", "instance": {"frame_id": "44444444-4444-4444-4444-444444444444", "request_wall_ms": null, "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "byte_length": 631}, "keyword": "type", "path": ["request_wall_ms"]},
+  {"name": "metadata-clock-overflow", "definition": "FrameMetadata", "instance": {"frame_id": "44444444-4444-4444-4444-444444444444", "request_wall_ms": 9007199254740992, "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "byte_length": 631}, "keyword": "maximum", "path": ["request_wall_ms"]},
+  {"name": "committed-null-receipt", "definition": "ManifestFrame", "instance": {"frame_id": "44444444-4444-4444-4444-444444444444", "state": "committed", "receipt": null}, "keyword": "type", "path": ["receipt"]},
+  {"name": "pending-missing-receipt", "definition": "ManifestFrame", "instance": {"frame_id": "44444444-4444-4444-4444-444444444444", "state": "pending"}, "keyword": "required", "path": []},
+  {"name": "error-wrong-retryable", "definition": "Error", "instance": {"error": {"code": "unavailable", "message": "Service unavailable.", "retryable": false}}, "keyword": "const", "path": ["error", "retryable"]},
+  {"name": "error-unknown-code", "definition": "Error", "instance": {"error": {"code": "sql_error", "message": "Failure.", "retryable": false}}, "keyword": "enum", "path": ["error", "code"]},
+  {"name": "error-sensitive-extension", "definition": "Error", "instance": {"error": {"code": "unavailable", "message": "Service unavailable.", "retryable": true, "stack": "synthetic stack"}}, "keyword": "additionalProperties", "path": ["error"]}
+]

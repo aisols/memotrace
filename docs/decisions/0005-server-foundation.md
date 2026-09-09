@@ -1,12 +1,15 @@
 # ADR 0005: Server Foundation and Trusted Processing
 
-Status: Proposed
+Status: Proposed (broader foundation; historical proposal retained)
 
 Discussion recorded: 2026-09-09. Trusted server processing is the agreed security
-direction from the discussion. The Go core with Python inference is the preferred
-recommendation for review, not a finalized stack or an implementation. Acceptance
-of this ADR requires explicit review of the proposal and its unresolved choices;
-even an Accepted ADR would not establish implemented behavior.
+direction from the discussion. At that point, the Go core with Python inference
+was the preferred recommendation for review, not a finalized stack or implementation.
+The user subsequently approved the first executable contract and minimal Go server;
+[ADR 0006](0006-ingestion-v0-1.md) accepts that concrete local-first ingestion
+direction. Go is adopted for that slice. Python inference and the broader stack
+remain unimplemented proposals. This historical foundation is not blanket acceptance
+of its remaining choices; an Accepted ADR would not establish verified behavior.
 
 ## Context
 
@@ -16,10 +19,11 @@ reasoning over selected evidence. It prefers Python/FastAPI. That baseline remai
 intact; this record explains the subsequent recommendation rather than silently
 rewriting the earlier preference.
 
-At baseline `992323f`, Android has an executable local recorder; the server and
-contracts remain scaffolds, without a released API, schema, protocol version,
-build, or tests. The Linux Ryzen 9 5950X / 64 GB / no-GPU host is a benchmark target,
-not proof that any model or overnight processing budget is feasible.
+At baseline `992323f`, Android had an executable local recorder; the server and
+contracts were scaffolds, without a released API, schema, protocol version, build
+or tests. The current slice now has executable Go/PostgreSQL ingestion and contract
+0.1.0 checks, still unreleased. The Linux Ryzen 9 5950X / 64 GB / no-GPU host is a
+benchmark target, not proof that any model or overnight processing budget is feasible.
 
 Long-term value comes from preserving evidence and finding it later, not from
 running a VLM over every frame each day. Reliability, owner isolation, recoverable
@@ -35,6 +39,8 @@ encryption, and model reproducibility must be designed before the first ingest.
   archive persistence, migrations, durable job orchestration, search, and optional
   reasoning integration. Python is a narrow inference process or bounded worker
   pool, with strict static checking, runtime validation, and pinned dependencies.
+  The accepted Go slice now covers enrollment, ingestion/persistence and initial
+  pending-job insertion; search, queue consumers and Python inference remain future.
 - **Storage proposal:** PostgreSQL plus pgvector for metadata, text/vector indexes,
   and an initial durable database queue; filesystem originals with explicit
   crash reconciliation. A durable archive receipt is independent of inference
@@ -76,9 +82,12 @@ search follows, then OCR/episodes, lazy provenance, and optional VLM/voice integ
 Preserved originals permit better future models; they also create substantial
 storage, deletion, backup, and recovery obligations.
 
-Key custody/recovery, enrollment, internal IPC, exact model/runtime choices,
-deletion/retention, upload resume granularity, and mobile metadata mapping remain
-open. Shared-service operation needs further privileged-access and isolation gates.
+ADR 0006 settles this slice's local enrollment, operator-owned encryption/recovery
+responsibilities and full-file upload retry. Internal IPC, exact model/runtime
+choices, deletion/retention and mobile metadata mapping remain open. Shared-service
+operation needs further privileged-access and isolation gates.
 The [server roadmap](../../server/docs/design.md#delivery-plan-and-gates) and
 [ingestion semantics](../../contracts/docs/ingestion-design.md) identify the next
-decisions and verification evidence; this ADR supplies no executable targets.
+decisions and verification evidence. Executable targets now belong to the
+[server](../../server/README.md) and [contracts](../../contracts/README.md), not this
+historical proposal.

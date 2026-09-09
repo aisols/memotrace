@@ -56,6 +56,20 @@ fixtures or explicitly redistributable fixtures with documented provenance.
 - Android now has executable recorder build/test targets and CI orchestration;
   run the commands and coverage gates in `android/README.md` and
   `android/docs/quality.md`. Device evidence is a separate main-agent gate.
-  Server/contracts remain scaffolds without executable targets: mark only those
-  inapplicable checks honestly. Do not invent commands, placeholder configuration,
-  or green builds; add reproducible checks with each working implementation.
+- Server and contracts now have autonomous executable targets. From `contracts/`,
+  run `uv run --locked python -m tools.verify` with Python 3.12 and uv 0.11.3;
+  follow `contracts/README.md` and `contracts/docs/quality.md`. From `server/`, run
+  `bash scripts/verify.sh` with Linux, Go 1.26.4, Python 3 and Docker, then
+  `docker build -t memotrace-server:local .`; follow `server/README.md` and
+  `server/docs/quality.md`. The full verifier owns disposable PostgreSQL-15 setup,
+  required DB/race/fault tests and the >=85% `internal/protocol` coverage gate;
+  independent review of that gate is required. `go test ./...` alone is not the
+  full gate.
+- Root ingestion CI runs both components for server or contract changes and checks
+  canonical/snapshot parity with the explicit read-only maintenance command in
+  `.github/README.md`. Coordinate source, snapshot hashes/version/provenance and
+  consumer regressions through review; never auto-refresh to conceal drift or add
+  sibling imports to ordinary component builds. Verify component extraction too.
+- Do not invent commands, placeholder configuration or green builds. Physical
+  power-loss, restored-backup, deployment and Android sync evidence remain separate
+  from synthetic server/contract tests; report unavailable checks honestly.
