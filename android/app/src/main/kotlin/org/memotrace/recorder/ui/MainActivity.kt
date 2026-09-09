@@ -110,23 +110,23 @@ open class MainActivity : Activity() {
                 )
             }
         }
-        status = label(R.id.record_status, 22f).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE }
-        count = label(R.id.saved_count, 20f)
-        quarantined = label(R.id.quarantined_count, 18f)
-        last = label(R.id.last_saved, 18f)
-        interval = label(R.id.capture_interval, 18f)
-        cover = label(R.id.cover_shadow, 18f)
         profile = control(R.id.select_profile, R.string.select_profile, Color.rgb(21, 77, 54))
         profile.setOnClickListener { selectProfile() }
-        negotiated = label(R.id.negotiated_size, 18f)
-        folder = label(R.id.session_folder, 18f)
-        details = label(R.id.last_file_details, 18f)
         viewLast = control(R.id.view_last, R.string.view_last, Color.rgb(21, 77, 54))
         viewLast.setOnClickListener {
             app.refreshAvailability(lastOnly = true) {
                 if (visible && !FrameViewer.open(this, app.summary.last)) showMessage(R.string.viewer_unavailable)
             }
         }
+        status = label(R.id.record_status, 22f).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE }
+        count = label(R.id.saved_count, 20f)
+        quarantined = label(R.id.quarantined_count, 18f)
+        last = label(R.id.last_saved, 18f)
+        interval = label(R.id.capture_interval, 18f)
+        cover = label(R.id.cover_shadow, 18f)
+        negotiated = label(R.id.negotiated_size, 18f)
+        folder = label(R.id.session_folder, 18f)
+        details = label(R.id.last_file_details, 18f)
         label(View.NO_ID, 16f).setText(R.string.scope_note)
         notificationNotice = label(View.NO_ID, 16f).apply { setText(R.string.notification_permission_note) }
         setContentView(scroll)

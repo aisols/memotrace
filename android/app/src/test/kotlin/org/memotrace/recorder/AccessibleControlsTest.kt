@@ -21,6 +21,9 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.memotrace.recorder.capture.RecorderService
+import org.memotrace.recorder.storage.ArchiveSummary
+import org.memotrace.recorder.storage.Availability
+import org.memotrace.recorder.storage.SavedFrame
 import org.memotrace.recorder.ui.MainActivity
 import org.memotrace.recorder.ui.TremorButton
 import org.robolectric.Robolectric
@@ -142,6 +145,61 @@ class AccessibleControlsTest {
             app.publish()
             layout(activity.window.decorView)
             assertEquals(stableTop, start.top to pause.top)
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h914dp-mdpi")
+    fun normalPortraitKeepsActionsAboveDiagnosticsVisibleAndStable() {
+        Robolectric.buildActivity(MainActivity::class.java).setup().use { controller ->
+            app.io.submit {}.get(5, TimeUnit.SECONDS)
+            shadowOf(Looper.getMainLooper()).idle()
+            val activity = controller.get()
+            assertEquals(1f, activity.resources.configuration.fontScale)
+            layout(activity.window.decorView, 411, 914)
+            val scroll = activity.findViewById<ScrollView>(R.id.recorder_scroll)
+            val content = scroll.getChildAt(0) as LinearLayout
+            val buttons =
+                listOf(R.id.start_recording, R.id.pause_recording, R.id.select_profile, R.id.view_last)
+                    .map { activity.findViewById<Button>(it) }
+            assertEquals(0, scroll.scrollY)
+            buttons.forEachIndexed { index, button ->
+                assertTrue(button is TremorButton)
+                assertEquals(index + 1, content.indexOfChild(button))
+                assertEquals(View.VISIBLE, button.visibility)
+                val visible = Rect()
+                assertTrue(button.getLocalVisibleRect(visible))
+                assertEquals(button.width, visible.width())
+                assertEquals(button.height, visible.height())
+            }
+            assertEquals(buttons[0].bottom + 12, buttons[1].top)
+            assertEquals(5, content.indexOfChild(activity.findViewById(R.id.record_status)))
+            assertTrue(activity.findViewById<View>(R.id.record_status).top >= buttons.last().bottom)
+            val bounds = buttons.map { Rect(it.left, it.top, it.right, it.bottom) }
+
+            app.summary =
+                ArchiveSummary(
+                    1,
+                    1,
+                    SavedFrame(
+                        "content://media/external_primary/images/media/1",
+                        "Pictures/MemoTrace/test/",
+                        100,
+                        16,
+                        12,
+                        Availability.AVAILABLE,
+                    ),
+                    quarantinedCount = 2,
+                )
+            app.coverText = "SHADOW diagnostic ".repeat(30)
+            for (status in listOf(R.string.status_recording, R.string.status_stopping, R.string.status_storage_error)) {
+                app.status = status
+                app.sessionOpen = status != R.string.status_storage_error
+                app.publish()
+                layout(activity.window.decorView, 411, 914)
+                assertEquals(bounds, buttons.map { Rect(it.left, it.top, it.right, it.bottom) })
+                assertEquals(0, scroll.scrollY)
+            }
         }
     }
 
