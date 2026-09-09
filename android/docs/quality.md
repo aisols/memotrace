@@ -45,6 +45,42 @@ checks had not started. This correction changes only the CI version identifier;
 the JDK +8 selection and all verification gates are retained. Hosted rerun remains
 main-agent-owned; no runtime/test sources or device APKs were changed or rebuilt.
 
+### Isolated CI SDK Inputs
+
+[Hosted run 34341346464](https://github.com/aisols/memotrace/actions/runs/34341346464)
+completed tests, coverage, style and both APK assemblies, but failed `:app:lintDebug`
+with `OldTargetApi` at `targetSdk = 36`. It used `/usr/local/lib/android/sdk`;
+the [runner image inventory](https://github.com/actions/runner-images/blob/ubuntu24/20260831.293/images/ubuntu/Ubuntu2404-Readme.md#android)
+includes API 37 platforms. The locally isolated API-36 checks passed as recorded
+below; that is not a hosted CI pass.
+
+Source confirmation for AGP 8.13.2's lint 31.13.2:
+`GradleDetector.checkTargetSdkVersion` / `TargetSdkCheck.checkTargetSdk` in the
+[lint-checks sources](https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint-checks/31.13.2/lint-checks-31.13.2-sources.jar)
+compare against `LintClient.highestKnownApiLevel` in the
+[lint-api sources](https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint-api/31.13.2/lint-api-31.13.2-sources.jar).
+That is the maximum of installed platforms (including previews) and
+`SdkVersionInfo.HIGHEST_KNOWN_STABLE_API`, which is 36 in the
+[pinned sdklib sources](https://dl.google.com/dl/android/maven2/com/android/tools/sdklib/31.13.2/sdklib-31.13.2-sources.jar).
+
+The workflow now gives the [pinned setup action](https://github.com/android-actions/setup-android/blob/9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407/src/main.ts)
+a fresh `${{ runner.temp }}/android-sdk`, with both SDK variables set in **step**
+`env` (the `runner` context is unavailable in job `env`). The action reads
+`ANDROID_SDK_ROOT`, creates directories through its archive extractor, installs
+official command-line tools `16111833` and the declared `platform-tools`,
+`platforms;android-36`, `build-tools;36.0.0` packages, then exports both
+`ANDROID_HOME` and `ANDROID_SDK_ROOT` for subsequent steps. The SDK is not cached;
+installed revisions are logged, not fabricated. SDK Manager resolves revisions
+within these package IDs; this is an isolated API baseline, not a byte-for-byte lock.
+No host SDK files are removed or metadata altered.
+
+`OldTargetApi` remains active with warnings as errors: targeting below the declared
+API-36 baseline still fails lint. SDK/target upgrades require explicit reviewed
+matrix changes, behavior review and device verification, not unrelated runner-image
+updates. No lint suppression, baseline, diagnostic filtering or gate reduction is
+added. Independent review and the main agent's final hosted rerun remain pending;
+this environment-only correction has not established a new CI or device pass.
+
 ## Wrapper Provenance
 
 Bootstrapped the official distribution, compared its SHA-256 to Gradle's published
@@ -167,7 +203,9 @@ real connected run passed storage but failed UI/capture (2 of 3 tests) with
 and the screen off after timeout. This is a documented environment-blocked run,
 not a passed hardware recorder gate. See device-verification.md for the required
 initial user unlock and scoped instrumentation-only window flag. No assertions
-were removed and no tests were skipped; device retry remains main-agent-owned.
+were removed and no tests were skipped. The subsequent unlocked 3/3 retry and
+bounded manual screen-off observation are recorded in the
+[2026-09-09 main-agent evidence](verification-2026-09-09.md).
 
 Implementation-owner verification of that fixture (no device access):
 
@@ -178,8 +216,8 @@ Implementation-owner verification of that fixture (no device access):
 Passed with 76 tasks executed and all 37 app-local tests passing, zero skipped.
 Lint found no issues; formatting and instrumentation APK signature verification
 passed. Production sources contain no `FLAG_KEEP_SCREEN_ON`. These local checks
-do not execute the runner's device lifecycle callback; the initially unlocked
-phone retry is still required.
+do not execute the runner's device lifecycle callback; the subsequent main-agent
+device retry is recorded in the [dated evidence](verification-2026-09-09.md).
 
 Known nonfatal tool output: AGP's SDK parser warns about installed command-line
 tools' XML schema 4 versus parser schema 3; the API-36 builds resolve successfully.
@@ -209,9 +247,11 @@ cannot revive an earlier cancelled gesture.
 `.github/workflows/android.yml` runs the local command on Ubuntu 24.04 with pinned
 action commits and tool versions. It assembles instrumentation but does not claim
 hosted runners are the reference device. Hosted CI has not been run by the builder.
-Independent review, latest-revision CI, and the main agent's actual device evidence
-remain required before merge. Existing server/contracts have no executable targets;
-cross-component tests are not applicable to this no-network slice.
+Independent review and bounded main-agent device observations are recorded in the
+[dated evidence](verification-2026-09-09.md), with remaining limitations. Latest-revision
+CI and unresolved required checks remain merge gates; [PR #2](https://github.com/aisols/memotrace/pull/2)
+is authoritative for the pending hosted rerun. Existing server/contracts have no
+executable targets; cross-component tests are not applicable to this no-network slice.
 The Gradle action v5.0.0 reference is the peeled official commit
 `4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2`, resolved using
 `git ls-remote https://github.com/gradle/actions.git 'refs/tags/v5.0.0*'`, not its

@@ -2,9 +2,10 @@
 
 Buildable, local-only adaptive JPEG recorder prototype for **Android 16 / API 36
 and later**. API 36 is the only current test target; older Android versions are
-deliberately not advertised by this first slice. Hardware behavior still needs
-independent verification on the SM-A336B. No app was installed or launched during
-implementation.
+deliberately not advertised by this first slice. Bounded SM-A336B observations and
+remaining hardware limits are recorded in the
+[2026-09-09 main-agent evidence](docs/verification-2026-09-09.md).
+The implementation owner did not install or launch the app.
 
 ## Implemented Scope
 
@@ -22,9 +23,10 @@ implementation.
 
 No network permission, upload, server, VLM, HEVC, speech, global keys,
 accessibility service, kiosk, boot receiver, automatic camera restart, or
-lock-screen takeover. Other applications remain accessible. Screen-off support
-is the service's design, **not yet device evidence**. Faster sampling does not
-fix motion blur. All finalized JPEGs are retained, including covered/dark scenes.
+lock-screen takeover. Other applications remain accessible. A bounded screen-off
+observation is recorded in the [main-agent evidence](docs/verification-2026-09-09.md),
+not an endurance guarantee. Faster sampling does not fix motion blur. All finalized
+JPEGs are retained, including covered/dark scenes.
 Uninstalling the application or clearing its data destroys this local archive;
 there is no synchronization or backup in this slice.
 

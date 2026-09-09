@@ -62,8 +62,10 @@ storage test but failed the two UI/capture tests with `NoActivityResumed` and an
 ActivityScenario left STOPPED. The main agent found the screen off after timeout
 and secure keyguard showing. This attempt was environment-blocked, not evidence
 of an application defect or a passed hardware recorder gate. The test-only window
-fixture above awaits a retry with the phone initially unlocked. The implementation
-owner has not accessed the device.
+fixture above was subsequently retried by the main agent after normal user unlock:
+3/3 passed, none skipped. See the [2026-09-09 main-agent evidence](verification-2026-09-09.md)
+for that retry, the separate manual screen-off observation, artifact identity and
+remaining limitations. The implementation owner has not accessed the device.
 
 ## Manual Recorder Smoke Test
 
