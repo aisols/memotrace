@@ -7,7 +7,7 @@
 | Gradle Wrapper | 8.13 |
 | Android Gradle Plugin | 8.13.2 |
 | Kotlin | 2.2.21 |
-| Java toolchain | 21; local Ubuntu 21.0.12+8, CI Temurin 21.0.12+8 |
+| Java toolchain | 21; local Ubuntu 21.0.12+8, CI Temurin SemVer 21.0.12+8.0.LTS (JDK build +8) |
 | min/compile/target SDK | 36/36/36 |
 | Installed API 36 platform | revision 2 |
 | Build-Tools | 36.0.0 |
@@ -27,6 +27,23 @@ The four explicit dependency-update advisory suppressions preserve this tested
 matrix; they do not suppress Android safety checks. The one UseKtx suppression
 preserves SharedPreferences.commit's Boolean failure result, which KTX discards.
 Lint otherwise treats warnings as errors, with no baseline.
+
+### Exact Temurin CI Pin
+
+The [official Adoptium API](https://api.adoptium.net/v3/assets/version/%5B21.0.12%2C21.0.13%29?project=jdk&vendor=adoptium&heap_size=normal&sort_method=DEFAULT&sort_order=DESC&os=linux&architecture=x64&image_type=jdk&release_type=ga&jvm_impl=hotspot&page_size=20&page=0)
+identifies the Linux x64 HotSpot JDK GA release `jdk-21.0.12+8` with
+`version_data.semver = 21.0.12+8.0.LTS`, `build = 8`, and
+`openjdk_version = 21.0.12+8-LTS`. The separate `21.0.12+101.0.LTS` entry is
+release `jdk-21.0.12.1+1`, not the requested +8 build.
+The [pinned setup-java matcher](https://github.com/actions/setup-java/blob/dded0888837ed1f317902acf8a20df0ad188d165/src/util.ts)
+uses `semver.compareBuild` for exact pins containing build metadata, so the
+workflow uses the complete `21.0.12+8.0.LTS` identifier, not a floating Java 21 range.
+
+Main-agent report: draft PR #2's first hosted run failed in `actions/setup-java`
+because the former `21.0.12+8` pin did not match the published SemVer. Gradle
+checks had not started. This correction changes only the CI version identifier;
+the JDK +8 selection and all verification gates are retained. Hosted rerun remains
+main-agent-owned; no runtime/test sources or device APKs were changed or rebuilt.
 
 ## Wrapper Provenance
 
