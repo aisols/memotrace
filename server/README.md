@@ -13,18 +13,25 @@ Autonomous component for the durable archive, processing, and retrieval system.
 The reference host is Linux with a Ryzen 9 5950X, 64 GB RAM, and no GPU. Daily
 throughput and model quality targets require benchmarks, not hardware assumptions.
 
+See the [proposed server design](docs/design.md) for pipelines, technology
+alternatives, durability, capacity, and delivery gates. The
+[server foundation ADR](../docs/decisions/0005-server-foundation.md) records the
+preferred Go core/Python inference recommendation for review, not a finalized stack.
+The [data-protection proposal](../docs/architecture/data-protection.md) explains
+the agreed trusted-processing direction and proposed controls and limitations.
+
 ## Layout and Build Status
 
-- `src/memotrace/`: future Python package.
+- `src/memotrace/`: legacy reserved Python package location, not an implemented package.
 - `migrations/`: server-owned database migrations.
 - `tests/`: component tests, including tests with its own database.
 - `benchmarks/`: capture/retrieval/processing evaluation definitions and runners.
 
-These are reserved directories, not an implemented package. There is no Python
-build manifest, dependency lockfile, Docker image, or executable test suite yet.
-Introduce `pyproject.toml`, a component-local lockfile, and reproducible commands
-with the first working implementation. Docker builds must use this directory as
-their context, not the enclosing repository.
+These are reserved directories. There is no Go module, Python build manifest,
+dependency lockfile, Docker image, or executable test suite yet. The server owns
+its build manifests and lockfiles for the eventual reviewed stack; introduce them
+and reproducible commands with the first working implementation. Docker builds
+must use this directory as their context, not the enclosing repository.
 
 ## Internal Boundaries
 

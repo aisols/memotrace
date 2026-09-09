@@ -3,6 +3,10 @@
 Autonomous, language-neutral source of truth for the public protocol and persisted
 exchange formats. No API, schema, contract version, or release exists yet.
 
+The [initial ingestion design](docs/ingestion-design.md) records proposed semantic
+choices and open questions for pairing, durable upload receipts, restart/retry,
+and authorized original retrieval. It is not a published protocol or schema.
+
 ## Layout
 
 - `openapi/`: canonical public HTTP API definitions.
