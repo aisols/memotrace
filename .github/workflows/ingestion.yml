@@ -1,0 +1,56 @@
+name: Ingestion Contracts and Server
+
+on:
+  pull_request:
+    paths: ['server/**', 'contracts/**', '.github/**', 'AGENTS.md', 'README.md', 'SECURITY.md', 'CONTRIBUTING.md', 'LICENSE', 'SPEC.md', 'docs/**']
+  push:
+    branches: [main]
+    paths: ['server/**', 'contracts/**', '.github/**', 'AGENTS.md', 'README.md', 'SECURITY.md', 'CONTRIBUTING.md', 'LICENSE', 'SPEC.md', 'docs/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ingestion-checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GOTOOLCHAIN: local
+      UV_PYTHON_DOWNLOADS: never
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
+        with:
+          version: '0.11.3'
+          working-directory: contracts
+          enable-cache: false
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version: '1.26.4'
+          cache: false
+      - name: Contract Schema, OpenAPI, Fixtures, and Boundaries
+        working-directory: contracts
+        run: uv run --locked python -m tools.verify
+      - name: Canonical Contract and Server Snapshot Parity
+        working-directory: server
+        # Read-only assembly check. Refresh canonical bytes/provenance explicitly
+        # through review; ordinary server builds/tests use only their local snapshot.
+        run: >-
+          python3 scripts/refresh-contract.py --check --source ../contracts
+          --source-base f4e53f8 --provenance unreleased-working-tree
+      - name: Server Build, Race Tests, PostgreSQL, and Domain Coverage
+        working-directory: server
+        # The component provisions/cleans its own uniquely named PostgreSQL container.
+        run: bash scripts/verify.sh
+      - name: Server Component Docker Build
+        working-directory: server
+        run: docker build -t memotrace-server:local .

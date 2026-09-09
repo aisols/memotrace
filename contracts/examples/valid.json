@@ -1,0 +1,76 @@
+{
+  "ContractVersion": "0.1.0",
+  "UUID": "01234567-89ab-cdef-0123-456789abcdef",
+  "SHA256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "Token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "UTCDateTime": "2026-09-09T12:34:56.123456789Z",
+  "ServerOrigin": "https://memotrace.example:8443",
+  "Milliseconds": 0,
+  "ByteLength": 631,
+  "Dimension": 1,
+  "Health": {"status": "ok", "contract_version": "0.1.0"},
+  "Invitation": {
+    "contract_version": "0.1.0",
+    "server_url": "https://memotrace.example:8443",
+    "tls_certificate_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "invitation_token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "expires_at": "2026-09-09T12:40:00Z",
+    "archive_id": "22222222-2222-2222-2222-222222222222"
+  },
+  "PairRequest": {"invitation_token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "device_name": "Synthetic device 📷"},
+  "PairResponse": {
+    "contract_version": "0.1.0",
+    "owner_id": "11111111-1111-1111-1111-111111111111",
+    "archive_id": "22222222-2222-2222-2222-222222222222",
+    "device_id": "33333333-3333-3333-3333-333333333333",
+    "device_token": "__________________________________________8"
+  },
+  "Profile": {
+    "id": "synthetic-portrait",
+    "requested_width": 1080,
+    "requested_height": 1920,
+    "jpeg_quality": 85,
+    "negotiated_width": null,
+    "negotiated_height": 1920
+  },
+  "FrameMetadata": {
+    "frame_id": "44444444-4444-4444-4444-444444444444",
+    "request_wall_ms": 1788957296000,
+    "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "byte_length": 631,
+    "session_id": "55555555-5555-5555-5555-555555555555",
+    "request_elapsed_ms": 1000,
+    "saved_wall_ms": 1788957296100,
+    "capture_settings": "synthetic settings",
+    "profile": {"id": "synthetic", "requested_width": 1, "requested_height": 1, "jpeg_quality": 85}
+  },
+  "ManifestRequest": {
+    "frames": [
+      {"frame_id": "44444444-4444-4444-4444-444444444444", "request_wall_ms": 1788957296000, "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "byte_length": 631},
+      {"frame_id": "66666666-6666-6666-6666-666666666666", "request_wall_ms": 0, "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "byte_length": 631, "session_id": null, "request_elapsed_ms": null, "saved_wall_ms": null, "capture_settings": null, "profile": null}
+    ]
+  },
+  "ManifestFrame": {"frame_id": "66666666-6666-6666-6666-666666666666", "state": "pending", "receipt": null},
+  "ManifestResponse": {
+    "contract_version": "0.1.0",
+    "frames": [
+      {
+        "frame_id": "44444444-4444-4444-4444-444444444444", "state": "committed",
+        "receipt": {"contract_version": "0.1.0", "archive_id": "22222222-2222-2222-2222-222222222222", "frame_id": "44444444-4444-4444-4444-444444444444", "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "byte_length": 631, "committed_at": "2026-09-09T12:34:57Z", "integrity": "sha256-byte-length-jpeg-header", "state": "archive_committed"}
+      },
+      {"frame_id": "66666666-6666-6666-6666-666666666666", "state": "pending", "receipt": null}
+    ]
+  },
+  "Receipt": {
+    "contract_version": "0.1.0",
+    "archive_id": "22222222-2222-2222-2222-222222222222",
+    "frame_id": "44444444-4444-4444-4444-444444444444",
+    "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "byte_length": 631,
+    "committed_at": "2026-09-09T12:34:57Z",
+    "integrity": "sha256-byte-length-jpeg-header",
+    "state": "archive_committed"
+  },
+  "ErrorDetail": {"code": "unavailable", "message": "Service unavailable.", "retryable": true},
+  "Error": {"error": {"code": "not_committed", "message": "Original not committed.", "retryable": true}}
+}

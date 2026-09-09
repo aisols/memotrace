@@ -1,0 +1,11 @@
+{
+  "contract_version": "0.1.0",
+  "source_component": "contracts",
+  "source_base_revision": "f4e53f8",
+  "provenance": "unreleased-working-tree",
+  "files": {
+    "schemas/ingestion.schema.json": "9dcc7ab98a2d77357c3a00e966590e282525962fa33c2aeb58c1b12ccdecb783",
+    "openapi/ingestion.json": "eafc37a24fddd70c6afd6c6ed1290f60ad62c691f650ba8af365cfbd9156b37b",
+    "VERSION": "e9dd8507f4bf0c6f42458e41aea833ad0bd3f6127272335eee9bf4d58541ed67"
+  }
+}

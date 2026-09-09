@@ -1,0 +1,254 @@
+{
+  "openapi": "3.1.0",
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "info": {
+    "title": "MemoTrace ingestion",
+    "version": "0.1.0",
+    "summary": "Unreleased development contract",
+    "description": "Normative HTTP surface for protocol 0.1.0. See docs/protocol.md for byte integrity, atomicity, trust, and retry requirements beyond JSON Schema. This definition is not server-conformance evidence.",
+    "license": {"name": "AGPL-3.0-only", "identifier": "AGPL-3.0-only"}
+  },
+  "servers": [{"url": "https://memotrace.example", "description": "Synthetic HTTPS origin; replace only after trusted bootstrap."}],
+  "security": [{"deviceToken": []}],
+  "x-contract-status": "unreleased-development",
+  "x-error-statuses": {
+    "invalid_request": [400, 404, 405],
+    "unauthorized": [401],
+    "not_found": [404],
+    "conflict": [409],
+    "not_committed": [409],
+    "integrity_error": [409],
+    "checksum_mismatch": [422],
+    "invalid_image": [422],
+    "payload_too_large": [413],
+    "unsupported_media_type": [415],
+    "unavailable": [503]
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "operationId": "health",
+        "summary": "Process liveness only",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "No identities or content; not a storage-health promise.",
+            "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "#/components/headers/NoSniff"}},
+            "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Health"}}}
+          },
+          "405": {"$ref": "#/components/responses/MethodNotAllowed"},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
+    },
+    "/v1/pairing/redeem": {
+      "post": {
+        "operationId": "redeemInvitation",
+        "summary": "Atomically consume a one-time invitation and register a device",
+        "description": "All invalid, expired, or consumed invitations return unauthorized without existence disclosure. Successful token is returned only once; lost response requires operator revocation and re-enrollment.",
+        "security": [],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/PairRequest"}}}},
+        "responses": {
+          "201": {
+            "description": "New device scoped to the invitation's archive.",
+            "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "#/components/headers/NoSniff"}},
+            "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/PairResponse"}}}
+          },
+          "400": {"$ref": "#/components/responses/InvalidRequest"},
+          "401": {"$ref": "#/components/responses/InvitationUnauthorized"},
+          "405": {"$ref": "#/components/responses/MethodNotAllowed"},
+          "413": {"$ref": "#/components/responses/PayloadTooLarge"},
+          "415": {"$ref": "#/components/responses/UnsupportedMediaType"},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
+    },
+    "/v1/archives/{archive_id}/frames": {
+      "parameters": [{"$ref": "#/components/parameters/ArchiveId"}],
+      "post": {
+        "operationId": "registerFrames",
+        "summary": "Register immutable expected metadata transactionally",
+        "description": "All-or-nothing; reject duplicate frame IDs with 400. Normalize absent/null optional metadata before immutable retry comparison. Matching repeats succeed; any immutable difference is 409 conflict. Response preserves input order. Receipt is non-null iff committed.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/ManifestRequest"}}}, "x-max-bytes": 1048576},
+        "responses": {
+          "200": {
+            "description": "Historical state/receipts; does not verify current original availability.",
+            "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "#/components/headers/NoSniff"}},
+            "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/ManifestResponse"}}}
+          },
+          "400": {"$ref": "#/components/responses/InvalidRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "405": {"$ref": "#/components/responses/MethodNotAllowed"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "413": {"$ref": "#/components/responses/PayloadTooLarge"},
+          "415": {"$ref": "#/components/responses/UnsupportedMediaType"},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
+    },
+    "/v1/archives/{archive_id}/frames/{frame_id}/original": {
+      "parameters": [{"$ref": "#/components/parameters/ArchiveId"}, {"$ref": "#/components/parameters/FrameId"}],
+      "put": {
+        "operationId": "putOriginal",
+        "summary": "Verify and durably commit a registered original JPEG",
+        "description": "Full-file retry only. Registration required first. Always verify submitted bytes, including committed repeats. Before receipt: exact registered length/SHA-256, SOI/EOI, JPEG header dimensions 1..16384 and <=40000000 pixels, durable file and metadata/job commit. No full decoding or ML promise.",
+        "requestBody": {"required": true, "content": {"image/jpeg": {"schema": {"type": "string", "format": "binary"}}}, "x-max-bytes": 16777216},
+        "responses": {
+          "200": {"$ref": "#/components/responses/Receipt"},
+          "400": {"$ref": "#/components/responses/InvalidRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "405": {"$ref": "#/components/responses/MethodNotAllowed"},
+          "409": {"$ref": "#/components/responses/IntegrityError"},
+          "413": {"$ref": "#/components/responses/PayloadTooLarge"},
+          "415": {"$ref": "#/components/responses/UnsupportedMediaType"},
+          "422": {"$ref": "#/components/responses/InvalidOriginal"},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      },
+      "get": {
+        "operationId": "getOriginal",
+        "summary": "Retrieve exact original bytes after integrity verification",
+        "description": "Pending returns not_committed; missing/corrupt committed original returns integrity_error before any content is served. Recheck stored bytes; preserve original EXIF. In-flight authorized download may finish after revocation.",
+        "responses": {
+          "200": {
+            "description": "Exact original JPEG; Content-Type image/jpeg and Content-Length are required.",
+            "headers": {
+              "Cache-Control": {"$ref": "#/components/headers/NoStore"},
+              "X-Content-Type-Options": {"$ref": "#/components/headers/NoSniff"},
+              "Content-Length": {"required": true, "schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/ByteLength"}, "description": "Exact byte count of the returned original."}
+            },
+            "content": {"image/jpeg": {"schema": {"type": "string", "format": "binary"}}}
+          },
+          "400": {"$ref": "#/components/responses/InvalidRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "405": {"$ref": "#/components/responses/MethodNotAllowed"},
+          "409": {"$ref": "#/components/responses/OriginalUnavailable"},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
+    },
+    "/v1/archives/{archive_id}/frames/{frame_id}/receipt": {
+      "parameters": [{"$ref": "#/components/parameters/ArchiveId"}, {"$ref": "#/components/parameters/FrameId"}],
+      "get": {
+        "operationId": "getReceipt",
+        "summary": "Recover the stable historical receipt after a lost acknowledgment",
+        "description": "Pending frame returns not_committed; unknown or out-of-scope returns not_found. This historical receipt can be returned even if original bytes were subsequently damaged.",
+        "responses": {
+          "200": {"$ref": "#/components/responses/Receipt"},
+          "400": {"$ref": "#/components/responses/InvalidRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "405": {"$ref": "#/components/responses/MethodNotAllowed"},
+          "409": {"$ref": "#/components/responses/NotCommitted"},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "deviceToken": {"type": "http", "scheme": "bearer", "bearerFormat": "32 random bytes, unpadded base64url (43 characters)", "description": "Archive-scoped device credential; authorize every request. The HTTP authentication scheme is case-insensitive (Bearer, bearer, BEARER); the token is case-sensitive. Missing, invalid, or revoked is 401 with the Bearer challenge; other owners' content is 404."}
+    },
+    "parameters": {
+      "ArchiveId": {"name": "archive_id", "in": "path", "required": true, "schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/UUID"}},
+      "FrameId": {"name": "frame_id", "in": "path", "required": true, "schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/UUID"}}
+    },
+    "headers": {
+      "NoStore": {"required": true, "schema": {"type": "string", "const": "no-store"}},
+      "NoSniff": {"required": true, "schema": {"type": "string", "const": "nosniff"}},
+      "BearerChallenge": {"required": true, "schema": {"type": "string", "const": "Bearer realm=\"memotrace\""}, "description": "Required WWW-Authenticate challenge on protected archive route 401 responses."},
+      "InvitationChallenge": {"required": true, "schema": {"type": "string", "const": "MemoTraceInvitation realm=\"memotrace-pairing\""}, "description": "Application-specific WWW-Authenticate challenge on redemption 401 responses: supply invitation_token in the JSON body. This is not bearer device authentication."}
+    },
+    "schemas": {
+      "Invitation": {"$ref": "../schemas/ingestion.schema.json#/$defs/Invitation"}
+    },
+    "responses": {
+      "Receipt": {
+        "description": "Stable archive_committed receipt after durable commit, including safe full-file repeats.",
+        "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Receipt"}}}
+      },
+      "InvalidRequest": {
+        "description": "400 invalid_request: malformed UTF-8/JSON, unpaired surrogate escapes (including property names), NUL in user text, invalid fields, or duplicate batch frame IDs. Reject invalid text before database access, without lossy replacement.",
+        "x-error-codes": ["invalid_request"],
+        "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "Unauthorized": {
+        "description": "401 unauthorized on protected archive routes: missing/invalid/revoked bearer device credential. No existence disclosure.",
+        "x-error-codes": ["unauthorized"],
+        "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "#/components/headers/NoSniff"}, "WWW-Authenticate": {"$ref": "#/components/headers/BearerChallenge"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "InvitationUnauthorized": {
+        "description": "401 unauthorized on invitation redemption: invalid/expired/consumed invitation. No existence disclosure. The application-specific challenge directs clients to invitation_token in the JSON request body, not to bearer device authentication.",
+        "x-error-codes": ["unauthorized"],
+        "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "#/components/headers/NoSniff"}, "WWW-Authenticate": {"$ref": "#/components/headers/InvitationChallenge"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "NotFound": {
+        "description": "404 not_found: unknown or out-of-scope archive/frame. Unknown route may instead use invalid_request (false).",
+        "x-error-codes": ["not_found", "invalid_request"],
+        "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "MethodNotAllowed": {
+        "description": "405 invalid_request (retryable false): wrong HTTP method. Unknown route returns 404 not_found or invalid_request. These routing errors also use no-store/nosniff.",
+        "x-error-codes": ["invalid_request"],
+        "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "Conflict": {
+        "description": "409 conflict: immutable metadata differs from the registration.",
+        "x-error-codes": ["conflict"],
+        "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "NotCommitted": {
+        "description": "409 not_committed: registered pending frame has no receipt yet.",
+        "x-error-codes": ["not_committed"],
+        "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "IntegrityError": {
+        "description": "409 integrity_error: committed original is missing or corrupt.",
+        "x-error-codes": ["integrity_error"],
+        "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "OriginalUnavailable": {
+        "description": "409 not_committed for pending; integrity_error for missing/corrupt committed original.",
+        "x-error-codes": ["not_committed", "integrity_error"],
+        "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "PayloadTooLarge": {
+        "description": "413 payload_too_large: request exceeds the applicable byte limit.",
+        "x-error-codes": ["payload_too_large"],
+        "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "UnsupportedMediaType": {
+        "description": "415 unsupported_media_type: request media type does not match the endpoint.",
+        "x-error-codes": ["unsupported_media_type"],
+        "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "InvalidOriginal": {
+        "description": "422 checksum_mismatch for registered length/hash mismatch; invalid_image for JPEG/header/dimension failure. Correct intended bytes before checksum retry.",
+        "x-error-codes": ["checksum_mismatch", "invalid_image"],
+        "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "Unavailable": {
+        "description": "503 unavailable: temporary storage/service/resource failure; retry with bounded backoff and resolve lost response through receipt lookup.",
+        "x-error-codes": ["unavailable"],
+        "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      }
+    }
+  }
+}
