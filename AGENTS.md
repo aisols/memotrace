@@ -53,7 +53,9 @@ fixtures or explicitly redistributable fixtures with documented provenance.
   to `main`. Never disable or skip tests or weaken gates merely to pass.
 - Report failures, unavailable checks, and unsupported device behavior truthfully.
   Unresolved required checks block merge; design intent is not device evidence.
-- The current scaffold has no application build/test commands or executable CI.
-  Mark those checks honestly not applicable; do not invent commands, placeholder
-  configuration, or green builds. Add reproducible component-local commands and
-  real CI checks with working implementation targets.
+- Android now has executable recorder build/test targets and CI orchestration;
+  run the commands and coverage gates in `android/README.md` and
+  `android/docs/quality.md`. Device evidence is a separate main-agent gate.
+  Server/contracts remain scaffolds without executable targets: mark only those
+  inapplicable checks honestly. Do not invent commands, placeholder configuration,
+  or green builds; add reproducible checks with each working implementation.

@@ -10,10 +10,12 @@ basic search.
 
 ## Status
 
-The project is in the design and repository-bootstrap stage. There is no
-buildable Android application, server implementation, or published API yet.
-Build manifests, wrappers, container definitions, and executable CI workflows
-will be added with their first working implementations, not as empty stubs.
+The first [Android recorder prototype](android/README.md) is buildable: adaptive
+JPEG capture, durable local storage, Russian controls, local tests, coverage gates
+and executable CI orchestration. Independent review, hosted CI and reference-device
+verification remain separate gates; implementation is not hardware evidence.
+There is no server implementation or published API yet. Synchronization, speech
+and advanced device interactions remain future work, without placeholder controls.
 
 The initial reference device is a dedicated Samsung Galaxy A33 running Android
 16 / One UI 8, with continued access to its existing applications. The reference

@@ -1,53 +1,92 @@
 # MemoTrace Android
 
-Autonomous component for the wearable recorder and user-facing client.
+Buildable, local-only adaptive JPEG recorder prototype for **Android 16 / API 36
+and later**. API 36 is the only current test target; older Android versions are
+deliberately not advertised by this first slice. Hardware behavior still needs
+independent verification on the SM-A336B. No app was installed or launched during
+implementation.
 
-## Scope
+## Implemented Scope
 
-- Camera capture and reliable local image/metadata storage.
-- Durable synchronization state, retries, and archive acknowledgments.
-- Accessible interaction, voice queries, and evidence viewing.
-- Recorder/ordinary-phone mode transitions and physical button handling.
-- On-device speech recognition, initially evaluating Vosk.
+- Visible, user-initiated camera foreground service, ongoing notification and Pause.
+- Rear CameraX JPEG capture: 2000 ms baseline, 1000 ms during motion, one request
+  including persistence at a time. Slow work reduces cadence rather than queuing.
+- Sampled, latest-only low-resolution luma analysis. Cover suspicion is **SHADOW**:
+  diagnostics only, never a reason to suppress, modify, or delete originals.
+- App-private originals, SQLite metadata/checksums, startup recovery, low-space
+  safe stop, persisted user intent and authoritative saved count/last-save time.
+- Russian native Views, two large tremor-tolerant Start/Pause buttons, status and diagnostics.
+  DOWN-anchored limited slip, UP-once and irreversible scroll/system cancellation;
+  native performClick/accessibility actions, no long/double-press requirement.
+  The page only scrolls when available height/text scaling requires it.
 
-The reference device is a Samsung Galaxy A33 on Android 16 / One UI 8. Existing
-applications must remain usable. Screen-off capture, wake behavior, and key
-handling require explicit hardware verification.
+No network permission, upload, server, VLM, HEVC, speech, global keys,
+accessibility service, kiosk, boot receiver, automatic camera restart, or
+lock-screen takeover. Other applications remain accessible. Screen-off support
+is the service's design, **not yet device evidence**. Faster sampling does not
+fix motion blur. All finalized JPEGs are retained, including covered/dark scenes.
+Uninstalling the application or clearing its data destroys this local archive;
+there is no synchronization or backup in this slice.
 
-## Layout and Build Status
+## Build And Verify
 
-`app/src/main/` reserves application sources, `app/src/test/` local tests, and
-`app/src/androidTest/` device tests. These directories contain no implementation.
-There is no Gradle project or build command yet.
+Run from `android/`, with JDK 21, `ANDROID_HOME`, accepted SDK terms, API 36 and
+Build-Tools 36.0.0. No parent configuration, sibling source, or live server is
+needed. The wrapper downloads its checksum-pinned official Gradle distribution.
 
-The Linux host toolchain and wireless ADB connection have been prepared. See
-[development environment](docs/development.md) for the installed versions,
-environment variables, verification commands, and pairing/reconnection procedure.
-This does not mean that an application build or recorder behavior has been tested.
+```bash
+./gradlew --no-daemon :capture-core:check :app:testDebugUnitTest :app:lintDebug spotlessCheck :app:assembleDebug :app:assembleDebugAndroidTest
+```
 
-When implementation starts, keep the Gradle Wrapper, settings, dependency
-configuration, and build/test instructions inside this directory. The project
-must build after this directory is extracted, without a parent Gradle project,
-sibling source trees, or a live server for client generation.
+`./gradlew spotlessApply` formats Kotlin/build scripts; it does not replace the
+check. `:capture-core:check` includes tests, JaCoCo report, and coverage enforcement.
+Independent test-result finalizers reject absent/empty results and every skipped
+test; a separate task rejects missing coverage inputs even when JaCoCo would skip.
+The root workflow runs the command above; it does not run hardware tests.
 
-Keep cohesive capture, local-state, synchronization, device-control, speech, and
-UI packages before introducing multiple Gradle modules. Reuse tremor-tolerant
-controls without breaking accessibility semantics.
+Only the coordinating main agent/operator runs the device command:
 
-## Boundaries
+```bash
+./gradlew :app:connectedDebugAndroidTest
+```
 
-Consume the public API and versioned formats, not server database models. Pin any
-contract snapshot/artifact and record its provenance; do not depend on a sibling
-contracts directory at build time. Use mocks or safe fixtures for local tests.
+Instrumented tests replace the Application with an isolated archive/preferences
+implementation, including the real-camera test. Pause ordinary recording before
+running instrumentation: Android may terminate the normal application process.
+Use a synthetic/nonprivate scene. Never clear normal application data to reset
+tests. See [device verification](docs/device-verification.md).
 
-Wireless ADB is for development only. Application synchronization uses its own
-authenticated, encrypted protocol. Keep signing keys, recordings, downloaded
-models, and local SDK paths out of Git. Runtime state belongs in Android-managed
-application storage, not a source checkout.
+## Layout
+
+| Location | Responsibility |
+| --- | --- |
+| `capture-core/` | Pure JVM scheduler, state, motion/cover metrics and exhaustive policy tests |
+| `app/.../capture/` | Service lifecycle, bounded orchestration, CameraX side-effect boundary |
+| `app/.../storage/` | Durable local index, streaming checksum, recovery and safe stop |
+| `app/.../ui/` | Native accessible controls and honest status |
+| `app/src/test/` | Robolectric native SQLite/filesystem and fake-camera service/UI regressions |
+| `app/src/androidTest/` | Real Android storage, UI and foreground-camera lifecycle tests |
+
+The JVM module is justified by Android-free policy testing and its explicit
+coverage gate. A separate Android recorder module would add no useful isolation.
+Future sync/speech packages should be added only with working implementations.
+
+`python3 tools/verify-quality-failures.py --temp-parent /tmp/opencode` repeats the
+same clean command in an isolated positive copy and six negative copies. It never
+mutates source tests; see the quality document for expected gate failures.
+
+## Documentation
+
+- [Architecture and recovery protocol](docs/recorder-architecture.md)
+- [Quality gates, versions and local results](docs/quality.md)
+- [Device verification and automation IDs](docs/device-verification.md)
+- [Linux toolchain and ADB setup](docs/development.md)
+- [Dependency provenance and notices](NOTICE.md)
 
 ## License
 
-Original component material is licensed under `AGPL-3.0-only`. The full license
-is in the enclosing repository's top-level `LICENSE`; include a complete copy
-when extracting or distributing this component independently. Third-party
-libraries and speech models retain their own terms.
+Original component code and documentation are `AGPL-3.0-only`. The complete
+license is in the enclosing repository's `LICENSE`; include it when extracting
+or distributing this component independently. Preserve the Gradle Wrapper's
+Apache-2.0 headers and third-party notices. No private recordings or downloaded
+SDK/dependency archives belong in Git.

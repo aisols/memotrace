@@ -1,4 +1,7 @@
 .gradle/
+.android/
+/sdk/
+/android-sdk/
 .kotlin/
 build/
 .cxx/
