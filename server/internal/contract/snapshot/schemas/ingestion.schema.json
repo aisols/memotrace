@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memotrace.example/contracts/0.1.0/ingestion.schema.json",
+  "title": "MemoTrace ingestion 0.1.0 development contract",
+  "description": "Canonical definitions; select a named $defs entry. The identifier is an offline identity, not a published download URL. See docs/protocol.md for normative content and lifecycle invariants.",
+  "$comment": "SPDX-License-Identifier: AGPL-3.0-only",
+  "$defs": {
+    "ContractVersion": {"type": "string", "const": "0.1.0"},
+    "UUID": {
+      "type": "string",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "description": "Canonical lower-case hyphenated hexadecimal UUID; no UUID version or variant restriction."
+    },
+    "SHA256": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "Token": {
+      "type": "string",
+      "minLength": 43,
+      "maxLength": 43,
+      "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$",
+      "description": "32 random bytes encoded as unpadded base64url. Final character has two zero padding bits. Examples are synthetic, not usable credentials; randomness is an issuer requirement."
+    },
+    "UTCDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$",
+      "not": {"pattern": "\\s"},
+      "description": "RFC3339 date-time with explicit UTC Z and upper-case T. A runtime format checker MUST enforce calendar/time validity in addition to the pattern. Emit ordinary seconds 00..59; the pinned checker does not support leap-second notation (see protocol.md)."
+    },
+    "ServerOrigin": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://(?:[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?|\\[[0-9A-Fa-f:.]+\\])(?::[0-9]{1,5})?$",
+      "not": {"pattern": "\\s"},
+      "description": "Exact origin with lower-case https://, host and optional 1..5 digit port (leading zeros allowed), no credentials/path/query/fragment. Host syntax and numeric port 1..65535 are additionally normative; verify and emit the exact origin. See protocol.md."
+    },
+    "Milliseconds": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "ByteLength": {"type": "integer", "minimum": 1, "maximum": 16777216},
+    "Dimension": {"type": "integer", "minimum": 1, "maximum": 16384},
+    "Health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "contract_version"],
+      "properties": {
+        "status": {"const": "ok"},
+        "contract_version": {"$ref": "#/$defs/ContractVersion"}
+      }
+    },
+    "Invitation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_version", "server_url", "tls_certificate_sha256", "invitation_token", "expires_at", "archive_id"],
+      "properties": {
+        "contract_version": {"$ref": "#/$defs/ContractVersion"},
+        "server_url": {"$ref": "#/$defs/ServerOrigin"},
+        "tls_certificate_sha256": {"$ref": "#/$defs/SHA256"},
+        "invitation_token": {"$ref": "#/$defs/Token"},
+        "expires_at": {"$ref": "#/$defs/UTCDateTime", "description": "Persist and emit the same expiry instant, retaining fractional seconds at PostgreSQL microsecond precision. CLI TTL is whole seconds 1..600; successful output is generated while unexpired. See protocol.md."},
+        "archive_id": {"$ref": "#/$defs/UUID"}
+      }
+    },
+    "PairRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["invitation_token", "device_name"],
+      "properties": {
+        "invitation_token": {"$ref": "#/$defs/Token"},
+        "device_name": {"type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$"}
+      }
+    },
+    "PairResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_version", "owner_id", "archive_id", "device_id", "device_token"],
+      "properties": {
+        "contract_version": {"$ref": "#/$defs/ContractVersion"},
+        "owner_id": {"$ref": "#/$defs/UUID"},
+        "archive_id": {"$ref": "#/$defs/UUID"},
+        "device_id": {"$ref": "#/$defs/UUID"},
+        "device_token": {"$ref": "#/$defs/Token"}
+      }
+    },
+    "Profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "requested_width", "requested_height", "jpeg_quality"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$"},
+        "requested_width": {"$ref": "#/$defs/Dimension"},
+        "requested_height": {"$ref": "#/$defs/Dimension"},
+        "jpeg_quality": {"type": "integer", "minimum": 1, "maximum": 100},
+        "negotiated_width": {"anyOf": [{"$ref": "#/$defs/Dimension"}, {"type": "null"}]},
+        "negotiated_height": {"anyOf": [{"$ref": "#/$defs/Dimension"}, {"type": "null"}]}
+      }
+    },
+    "FrameMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frame_id", "request_wall_ms", "sha256", "byte_length"],
+      "properties": {
+        "frame_id": {"$ref": "#/$defs/UUID"},
+        "request_wall_ms": {"$ref": "#/$defs/Milliseconds"},
+        "sha256": {"$ref": "#/$defs/SHA256"},
+        "byte_length": {"$ref": "#/$defs/ByteLength"},
+        "session_id": {"anyOf": [{"$ref": "#/$defs/UUID"}, {"type": "null"}]},
+        "request_elapsed_ms": {"anyOf": [{"$ref": "#/$defs/Milliseconds"}, {"type": "null"}]},
+        "saved_wall_ms": {"anyOf": [{"$ref": "#/$defs/Milliseconds"}, {"type": "null"}]},
+        "capture_settings": {"type": ["string", "null"], "maxLength": 2048, "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$"},
+        "profile": {"anyOf": [{"$ref": "#/$defs/Profile"}, {"type": "null"}]}
+      }
+    },
+    "ManifestRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frames"],
+      "properties": {
+        "frames": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": {"$ref": "#/$defs/FrameMetadata"},
+          "description": "Frame IDs must be distinct within the batch (normative semantic check; JSON Schema cannot express uniqueness by a property)."
+        }
+      }
+    },
+    "ManifestFrame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frame_id", "state", "receipt"],
+      "properties": {
+        "frame_id": {"$ref": "#/$defs/UUID"},
+        "state": {"enum": ["pending", "committed"]},
+        "receipt": {"anyOf": [{"$ref": "#/$defs/Receipt"}, {"type": "null"}]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"state": {"const": "pending"}}, "required": ["state"]},
+          "then": {"properties": {"receipt": {"type": "null"}}},
+          "else": {"properties": {"receipt": {"$ref": "#/$defs/Receipt"}}}
+        }
+      ]
+    },
+    "ManifestResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_version", "frames"],
+      "properties": {
+        "contract_version": {"$ref": "#/$defs/ContractVersion"},
+        "frames": {"type": "array", "minItems": 1, "maxItems": 100, "items": {"$ref": "#/$defs/ManifestFrame"}}
+      }
+    },
+    "Receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_version", "archive_id", "frame_id", "sha256", "byte_length", "committed_at", "integrity", "state"],
+      "properties": {
+        "contract_version": {"$ref": "#/$defs/ContractVersion"},
+        "archive_id": {"$ref": "#/$defs/UUID"},
+        "frame_id": {"$ref": "#/$defs/UUID"},
+        "sha256": {"$ref": "#/$defs/SHA256"},
+        "byte_length": {"$ref": "#/$defs/ByteLength"},
+        "committed_at": {"$ref": "#/$defs/UTCDateTime"},
+        "integrity": {"const": "sha256-byte-length-jpeg-header"},
+        "state": {"const": "archive_committed"}
+      }
+    },
+    "ErrorDetail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "retryable"],
+      "properties": {
+        "code": {"enum": ["invalid_request", "unauthorized", "not_found", "conflict", "not_committed", "integrity_error", "checksum_mismatch", "invalid_image", "payload_too_large", "unsupported_media_type", "unavailable"]},
+        "message": {"type": "string"},
+        "retryable": {"type": "boolean"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"code": {"enum": ["unavailable", "checksum_mismatch", "not_committed"]}}, "required": ["code"]},
+          "then": {"properties": {"retryable": {"const": true}}},
+          "else": {"properties": {"retryable": {"const": false}}}
+        }
+      ]
+    },
+    "Error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["error"],
+      "properties": {"error": {"$ref": "#/$defs/ErrorDetail"}}
+    }
+  }
+}

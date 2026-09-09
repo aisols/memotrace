@@ -28,8 +28,12 @@ not require a sibling `contracts/` checkout or a live server for code generation
 ## Independent Builds
 
 Android owns its Gradle settings, wrapper, dependencies, and tests. The server
-will own its Python package configuration, lockfile, container build, and tests.
+will own its build manifests, lockfiles, container build, and tests for its stack.
 These files are added with working implementations, not placeholder versions.
+
+The [proposed server foundation](../decisions/0005-server-foundation.md) records
+the preferred Go core/Python inference recommendation and its open decisions.
+SPEC remains the original baseline; the recommendation is subject to ADR review.
 
 The server Docker build context is `server/`, not the entire monorepository.
 Development Compose may reference `../server` from `deploy/`; this is an explicit
@@ -53,6 +57,10 @@ returns results. It must not own SQL transactions, retry policy, or archive
 deletion. Job orchestration and persistence remain server responsibilities.
 This permits a future processing library extraction without adding a network
 service solely to prepare for a repository split.
+
+The [data-protection proposal](data-protection.md) describes the agreed trusted
+processing direction, owner isolation, privacy lifecycle, and alternative trust
+boundaries. Its controls are proposals, not evidence of deployed security.
 
 Within Android, separate capture, durable local state, synchronization, device
 interaction, speech, and accessible UI behavior. Begin with cohesive packages;
