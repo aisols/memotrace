@@ -1,11 +1,14 @@
 # Recorder Device Verification
 
-The [2026-09-09 A33 gallery run](a33-gallery-failure-2026-09-09.md) failed: 2/10
-passed, 8 failed, zero skipped, then runner cleanup crashed. The FUSE adaptation
-has not been rerun on-device by the implementation owner. Do not reuse the old
-v1 device pass as evidence for this revision.
+The [2026-09-09 profile evidence](profiles-verification-2026-09-09.md) records
+MAIN's subsequent 10/10 native passes at `ceef24e` and `6445bad`, post-host retention,
+manual UI/new-photo checks and unresolved cleanup uncertainty. This is dated
+evidence, not a pass for future revisions or a controlled same-scene benchmark.
+The [initial A33 gallery run](a33-gallery-failure-2026-09-09.md) remains a failure:
+2/10 passed, 8 failed, zero skipped, then runner cleanup crashed. Do not reuse the
+old v1 pass as new-profile evidence; the implementation owner did not access the device.
 
-MAIN subsequently confirmed that the target package was absent after host
+After the initial failed run, MAIN confirmed the target package absent after host
 teardown. AGP/UTP default uninstall can erase private ledgers despite runner
 isolation. The component now enforces APK retention and disables incompatible-APK
 uninstall; read [connected-test host safety](connected-test-safety.md) before any
@@ -104,9 +107,9 @@ ledger retention, real trash/restore availability, and insert-before-first-open
 Application recovery. The latter requires readiness with zero saved frames and
 either proven removal or a retained quarantine tombstone on eager/lazy providers;
 it never creates a file to make recovery pass and preserves its isolated ledger/index.
-These are
-compiled-only until MAIN executes them; the AOSP source audit does not establish
-Samsung provider behavior. The six-profile test records requested Q/size, negotiated stream,
+MAIN's dated executions are linked above; compilation and the AOSP source audit
+alone do not establish Samsung provider behavior. The six-profile test records
+requested Q/size, negotiated stream,
 actual bounds and bytes under log tag `MemoTraceTest`; Q is a configured request,
 not proof of a firmware encoder's internal quantization. Record failures, including camera/permission
 or filesystem failures; do not weaken tests to accommodate unsupported hardware.
@@ -185,8 +188,10 @@ with resolution, navigation and font size; do not hardcode them in the applicati
 
 ## Storage And Sustained Evidence
 
-The private index and retained v1 archive are `run-as org.memotrace.recorder`
-relative path `no_backup/recorder/`. New original URIs and paths are in schema v2;
+The private index and any retained v1 archive use `run-as org.memotrace.recorder`
+relative path `no_backup/recorder/`. MAIN's old 660 JPEGs/v1 index were explicitly
+deleted at the user's request before new testing; the dated profile record describes
+18 new ordinary JPEGs, not that archive. New original URIs and paths are in schema v2;
 new images live publicly in Pictures/MemoTrace, not beside the index. See
 [MediaStore protocol](media-storage.md).
 Inspect it only while paused and drained. Debug `run-as` is normal debug APK

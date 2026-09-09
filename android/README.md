@@ -4,7 +4,8 @@ Buildable, offline adaptive JPEG recorder prototype for **Android 16 / API 36
 and later**. API 36 is the only current test target; older Android versions are
 deliberately not advertised by this first slice. Bounded SM-A336B observations and
 remaining hardware limits are recorded in the
-[2026-09-09 main-agent evidence](docs/verification-2026-09-09.md).
+[2026-09-09 profile evidence](docs/profiles-verification-2026-09-09.md), including
+final `6445bad` results; the [v1 evidence](docs/verification-2026-09-09.md) is historical.
 The implementation owner did not install or launch the app.
 
 ## Implemented Scope
@@ -14,8 +15,8 @@ The implementation owner did not install or launch the app.
   including persistence at a time. Slow work reduces cadence rather than queuing.
 - Sampled, latest-only low-resolution luma analysis. Cover suspicion is **SHADOW**:
   diagnostics only, never a reason to suppress, modify, or delete originals.
-- Six JPEG profiles, default 1440x1080 Q90, selectable only after Pause drains.
-  Every Start creates a new profile/session Gallery folder.
+- Six JPEG profiles, default 1440x1080 Q90 only when unset, selectable only after
+  Pause drains. Every Start creates a new profile/session Gallery folder.
 - One original in public MediaStore Pictures after explicit first-Start consent;
   private schema-v2 SQLite metadata/checksums, recovery, low-space safe stop,
   persisted selection/intent, actual dimensions, bytes and last-image viewer.
@@ -48,13 +49,14 @@ No MemoTrace synchronization/backup or release publishing in this debug prototyp
 | `v1-1440x1080-q90` | 1440x1080 Q90, 4:3 | Experimental lower-volume default |
 | `v1-1440x1080-q80` | 1440x1080 Q80, 4:3 | Compact/compression |
 
-Choose profile, Start, record a repeatable scene, Pause, wait for drain, then choose
-the next profile and Start. Use **Open last JPEG** or Gallery/My Files at
+Pause and wait for drain, choose profile, Start, record a repeatable scene, Pause,
+wait for drain, then choose the next profile and Start. Use **Open last JPEG** or Gallery/My Files at
 `Pictures/MemoTrace/<profile>/<profile>_<UTC-time>_<session-UUID>/`.
 16:9 may crop the top/bottom of the 4:3 view. CameraX uses closest-lower-then-higher
 fallback; compare actual dimensions, not requested size alone. No application
 Bitmap rescale/re-encode. Q is a CameraX request, not a universal quality score.
-No battery/legibility superiority is claimed without benchmarking.
+No battery/legibility superiority is claimed without benchmarking. A controlled
+same-scene comparison remains user work; the dated samples are not that benchmark.
 
 ## Build And Verify
 
@@ -115,7 +117,8 @@ without disabling the next Start. FUSE fstat ENOENT means UNKNOWN, not proven
 unlink; STILL_LINKED is reported separately. Expected test-cleanup uncertainty is
 reported with retained ledgers rather than crashing instrumentation finish.
 The [A33 gallery test attempt](docs/a33-gallery-failure-2026-09-09.md) failed before
-this adaptation; the adapted native tests still require MAIN's reviewed rerun.
+this adaptation; MAIN's subsequent passes and remaining residue uncertainty are
+recorded in the profile evidence linked above, without replacing that failure report.
 
 ## Layout
 

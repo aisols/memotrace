@@ -1,5 +1,15 @@
 # Android Quality Gates
 
+## Latest Profile Evidence
+
+[MAIN's 2026-09-09 profile record](profiles-verification-2026-09-09.md) covers code
+`6445bad`: clean command passed 101 tasks; 23 core + 82 app = 105 tests, zero
+failures/skips; native 10/10 and CI passed. Core coverage remains 123/123 lines
+(100%), 151/152 branches (99.34%), with unchanged 90/80 thresholds. The 81-app-test
+snapshots and earlier failures below are historical, not the final counts.
+The dated record includes artifact identity, retention evidence and limitations;
+it does not establish a pass for future revisions.
+
 ## Connected Host Safety
 
 The [host uninstall audit and commands](connected-test-safety.md) are a separate
@@ -8,7 +18,7 @@ failed connected run; runner-stage ledger retention did not prove survival past
 AGP/UTP teardown. Component defaults now retain APKs and forbid incompatible-APK
 uninstall, with prerequisite and first-action guards on connected test tasks.
 
-Implementation-owner local verification on 2026-09-09, without device access:
+Earlier implementation-owner local verification on 2026-09-09, without device access:
 
 | Check | Result |
 | --- | --- |
@@ -32,14 +42,16 @@ still require the custom safety rejection. No gate was weakened or test disabled
 
 CI retains its existing full quality command and adds the independent no-device
 safety regression script. No runtime/native/FUSE source, versionCode or dependency
-pin changed in this correction. App/test APK hashes remain the FUSE hashes below.
+pin changed in this correction. At that snapshot, APK hashes were the FUSE hashes
+below.
 No connected task or DeviceProvider action was executed by the implementation
-owner. MAIN owns review and the future device rerun.
+owner. MAIN's subsequent review and reruns are recorded in the latest profile
+evidence above.
 
 ## Profile Storage Review Fixes
 
-Implementation-owner local verification on 2026-09-09 for versionCode 2/versionName
-0.2.0 including the A33/FUSE unlink and Pause adaptation, not independent review or
+Earlier implementation-owner local verification on 2026-09-09 for versionCode 2 /
+versionName 0.2.0 including the A33/FUSE unlink and Pause adaptation, not independent review or
 device evidence. The toolchain pins and all
 existing gates are unchanged. [Storage protocol and limitations](media-storage.md)
 supersede the v1 private-file protocol for new captures; historical evidence below
@@ -53,7 +65,7 @@ python3 tools/verify-quality-failures.py --temp-parent /tmp/opencode
 Both passed using the documented JDK/SDK environment. Clean command: 100 tasks
 executed. Negative verifier: isolated positive succeeded, all six negative copies
 failed for their intended nonempty/zero-skips gate diagnostic. No verifier change
-was needed. Latest local evidence: `/tmp/opencode/memotrace-quality-swlisarr/`.
+was needed. That local evidence: `/tmp/opencode/memotrace-quality-swlisarr/`.
 `/tmp/opencode/memotrace-quality-eyfhg1_p/` is the preceding quarantine iteration.
 Earlier `/tmp/opencode/memotrace-quality-_5iq4crl/`, `/tmp/opencode/memotrace-quality-bq4qx9w_/` and
 `/tmp/opencode/memotrace-quality-_lh7u0ov/` predate the latest corrections.
@@ -71,11 +83,11 @@ Earlier `/tmp/opencode/memotrace-quality-_5iq4crl/`, `/tmp/opencode/memotrace-qu
 | Both APK signatures | Build-Tools 36.0.0 apksigner verified v2 signatures |
 | App identity/permissions | aapt2 confirms org.memotrace.recorder, 2/0.2.0, API 36; no network/broad photo permission |
 | Instrumentation execution | Not run by implementation owner; ten tests compiled |
-| Previous-revision A33 run by MAIN | 2 passed, 8 failed, zero skipped; runner cleanup then crashed. Adaptation rerun pending |
+| Previous-revision A33 run by MAIN | 2 passed, 8 failed, zero skipped; runner cleanup then crashed. Adaptation rerun was pending at this snapshot |
 | Hosted CI and independent review | Not performed by implementation owner |
 
-App tests comprise 22 storage/migration/fault/reconciliation, 11 ContentResolver
-adapter contract/resource, 1 pinned CameraX stream/scratch contract, 3 disk-barrier,
+Those 81 app tests comprised 22 storage/migration/fault/reconciliation,
+11 ContentResolver adapter contract/resource, 1 pinned CameraX stream/scratch contract, 3 disk-barrier,
 27 lifecycle, 8 profile/consent/viewer and 9 gesture/accessibility/layout tests.
 Coverage also includes immutable core profile/session tests; existing scheduling
 and tremor tests remain. Native-graphics unit tests exercise wrapped dialog text
@@ -101,7 +113,7 @@ remain prerequisites, with the existing scoped test-only keep-awake fixture.
 SDK XML/parser and unstripped CameraX JNI warnings remain visible/nonfatal, as in
 the previous slice. Main owns latest-revision device, CI and final merge gates.
 
-Both local verification runs of the current FUSE adaptation passed; no local
+Both local verification runs of the then-current FUSE adaptation passed; no local
 failure or skipped test remains. The earlier quarantine iteration had one failing adapter regression: the test
 provider opened every file read/write even for an `r` request, creating the missing
 fixture instead of returning FileNotFoundException. Its mode handling now follows
@@ -110,7 +122,8 @@ That test was corrected, not disabled. Earlier formatting/inference issues were
 also fixed without suppression. The subsequent MAIN-owned native run failed as
 recorded in [A33 gallery evidence](a33-gallery-failure-2026-09-09.md). Read/preserved
 that JUnit report before clean builds removed it. The adapted native provider
-tests have only compiled; the AOSP audit and local checks are not a Samsung pass.
+tests had only compiled at that snapshot; the AOSP audit and local checks were not
+a Samsung pass.
 
 Regression details: plain delete is replaced by a non-yielding assert/delete
 batch with expected counts and no exception continuation/fallback. Publication
@@ -156,7 +169,8 @@ identity/DB/close errors or an undrained writer set a strong failed-run report w
 cause/stack; they are not ignored. Isolated index/preferences stay when residue
 remains. Native row, ownership, sentinel, trash and race assertions are retained,
 with tri-state evidence replacing the unsupported universal POSIX assumption.
-These runner/device behaviors await MAIN's reviewed rerun.
+These runner/device behaviors then awaited MAIN's reviewed rerun; see the latest
+profile evidence above.
 
 The earlier global fail-closed treatment of absent unvalidated pending output was
 a recoverability regression, not an acceptable limitation. Startup now persists
@@ -174,7 +188,7 @@ and actual current-session IO (including ERROR_FILE_IO) remain fatal;
 recovery still rejects live-writer use. No broad exception-to-quarantine conversion,
 path scan or uncertain-artifact deletion. Test fixture cleanup scope is unchanged.
 
-Local clean-build SHA-256 (debug artifacts, not a release):
+Earlier local clean-build SHA-256 (debug artifacts, not the final UI APK or a release):
 
 - `app-debug.apk`: `c4dfa2499399b95525af7e260387d8e1ea9618efc5095d59ce47b865bf5bc756`
 - `app-debug-androidTest.apk`: `23bb3896da7c4bc63cae6bd677a351eb8599706f9dafc6cea303fc80a0afbd22`
@@ -257,8 +271,9 @@ No host SDK files are removed or metadata altered.
 API-36 baseline still fails lint. SDK/target upgrades require explicit reviewed
 matrix changes, behavior review and device verification, not unrelated runner-image
 updates. No lint suppression, baseline, diagnostic filtering or gate reduction is
-added. Independent review and the main agent's final hosted rerun remain pending;
-this environment-only correction has not established a new CI or device pass.
+added. At this historical PR #2 snapshot, independent review and MAIN's final
+hosted rerun were pending; the environment-only correction had not itself
+established a new CI or device pass.
 
 ## Wrapper Provenance
 
@@ -426,10 +441,14 @@ cannot revive an earlier cancelled gesture.
 `.github/workflows/android.yml` runs the local command on Ubuntu 24.04 with pinned
 action commits and tool versions. It assembles instrumentation but does not claim
 hosted runners are the reference device. Hosted CI has not been run by the builder.
-Independent review and bounded main-agent device observations are recorded in the
-[dated evidence](verification-2026-09-09.md), with remaining limitations. Latest-revision
-CI and unresolved required checks remain merge gates; [PR #2](https://github.com/aisols/memotrace/pull/2)
-is authoritative for the pending hosted rerun. Existing server/contracts have no
+Historical [PR #2](https://github.com/aisols/memotrace/pull/2) review and bounded
+MAIN device observations are in the [v1 evidence](verification-2026-09-09.md),
+with remaining limitations; its hosted rerun was pending at that snapshot.
+For current profile status, [PR #3](https://github.com/aisols/memotrace/pull/3) is
+authoritative. [MAIN's dated profile record](profiles-verification-2026-09-09.md)
+records `6445bad` with [CI run 34378499995 passed](https://github.com/aisols/memotrace/actions/runs/34378499995),
+not a guarantee for future HEADs. Latest-revision CI and unresolved required checks
+remain merge gates. Existing server/contracts have no
 executable targets; cross-component tests are not applicable to this no-network slice.
 The Gradle action v5.0.0 reference is the peeled official commit
 `4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2`, resolved using
