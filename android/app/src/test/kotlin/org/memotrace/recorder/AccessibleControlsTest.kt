@@ -129,9 +129,11 @@ class AccessibleControlsTest {
             assertTrue(scroll.canScrollVertically(1))
             val start = activity.findViewById<Button>(R.id.start_recording)
             val pause = activity.findViewById<Button>(R.id.pause_recording)
+            val viewLast = activity.findViewById<Button>(R.id.view_last)
+            val diagnostics = activity.findViewById<Button>(R.id.open_diagnostics)
             val stableTop = start.top to pause.top
             assertTrue("long Start label must actually wrap", start.layout.lineCount > 1)
-            for (button in listOf(start, pause)) {
+            for (button in listOf(start, pause, viewLast, diagnostics)) {
                 assertEquals(button.text.length, button.layout.getLineEnd(button.layout.lineCount - 1))
                 assertTrue(button.height >= button.layout.height + button.compoundPaddingTop + button.compoundPaddingBottom)
                 repeat(button.layout.lineCount) { line -> assertEquals(0, button.layout.getEllipsisCount(line)) }
@@ -160,7 +162,7 @@ class AccessibleControlsTest {
             val scroll = activity.findViewById<ScrollView>(R.id.recorder_scroll)
             val content = scroll.getChildAt(0) as LinearLayout
             val buttons =
-                listOf(R.id.start_recording, R.id.pause_recording, R.id.select_profile, R.id.view_last)
+                listOf(R.id.start_recording, R.id.pause_recording, R.id.view_last, R.id.open_diagnostics)
                     .map { activity.findViewById<Button>(it) }
             assertEquals(0, scroll.scrollY)
             buttons.forEachIndexed { index, button ->
@@ -203,30 +205,28 @@ class AccessibleControlsTest {
         }
     }
 
-    @Test fun profileAndConsentDialogsKeepCompleteLargeFontButtonsAndScrollAccess() {
+    @Test fun consentDialogKeepsCompleteLargeFontButtonsAndScrollAccess() {
         Robolectric.buildActivity(LargeFontActivity::class.java).setup().use { controller ->
             val activity = controller.get()
-            for (trigger in listOf(R.id.select_profile, R.id.start_recording)) {
-                app.io.submit {}.get(5, TimeUnit.SECONDS)
-                shadowOf(Looper.getMainLooper()).idle()
-                activity.findViewById<Button>(trigger).performClick()
-                shadowOf(Looper.getMainLooper()).idle()
-                val dialog = ShadowAlertDialog.getLatestAlertDialog()
-                layout(dialog.window!!.decorView)
-                val scroll = dialog.findViewById<ScrollView>(R.id.dialog_scroll)
-                val content = scroll.getChildAt(0) as LinearLayout
-                assertTrue(scroll.canScrollVertically(1))
-                for (index in 1 until content.childCount) {
-                    val button = content.getChildAt(index) as Button
-                    assertTrue(button is TremorButton)
-                    assertEquals(button.text.length, button.layout.getLineEnd(button.layout.lineCount - 1))
-                    assertTrue(button.height >= button.layout.height + button.compoundPaddingTop + button.compoundPaddingBottom)
-                    repeat(button.layout.lineCount) { assertEquals(0, button.layout.getEllipsisCount(it)) }
-                    scroll.scrollTo(0, button.top)
-                    accessible(button)
-                }
-                dialog.dismiss()
+            app.io.submit {}.get(5, TimeUnit.SECONDS)
+            shadowOf(Looper.getMainLooper()).idle()
+            activity.findViewById<Button>(R.id.start_recording).performClick()
+            shadowOf(Looper.getMainLooper()).idle()
+            val dialog = ShadowAlertDialog.getLatestAlertDialog()
+            layout(dialog.window!!.decorView)
+            val scroll = dialog.findViewById<ScrollView>(R.id.dialog_scroll)
+            val content = scroll.getChildAt(0) as LinearLayout
+            assertTrue(scroll.canScrollVertically(1))
+            for (index in 1 until content.childCount) {
+                val button = content.getChildAt(index) as Button
+                assertTrue(button is TremorButton)
+                assertEquals(button.text.length, button.layout.getLineEnd(button.layout.lineCount - 1))
+                assertTrue(button.height >= button.layout.height + button.compoundPaddingTop + button.compoundPaddingBottom)
+                repeat(button.layout.lineCount) { assertEquals(0, button.layout.getEllipsisCount(it)) }
+                scroll.scrollTo(0, button.top)
+                accessible(button)
             }
+            dialog.dismiss()
         }
     }
 

@@ -2,11 +2,13 @@
 
 Buildable, offline adaptive JPEG recorder prototype for **Android 16 / API 36
 and later**. API 36 is the only current test target; older Android versions are
-deliberately not advertised by this first slice. Bounded SM-A336B observations and
-remaining hardware limits are recorded in the
+deliberately not advertised by this first slice. MAIN's bounded observations for
+the current uncommitted long-run revision are in the
+[2026-09-10 long-run evidence](docs/long-run-verification-2026-09-10.md). The
 [2026-09-09 profile evidence](docs/profiles-verification-2026-09-09.md), including
-final `6445bad` results; the [v1 evidence](docs/verification-2026-09-09.md) is historical.
-The implementation owner did not install or launch the app.
+final `6445bad` results, and [v1 evidence](docs/verification-2026-09-09.md) remain
+historical. The implementation owner did not install or launch the app; current
+device work was performed by MAIN.
 
 ## Implemented Scope
 
@@ -15,21 +17,29 @@ The implementation owner did not install or launch the app.
   including persistence at a time. Slow work reduces cadence rather than queuing.
 - Sampled, latest-only low-resolution luma analysis. Cover suspicion is **SHADOW**:
   diagnostics only, never a reason to suppress, modify, or delete originals.
-- Six JPEG profiles, default 1440x1080 Q90 only when unset, selectable only after
-  Pause drains. Every Start creates a new profile/session Gallery folder.
+- Fixed ordinary test profile `v1-1920x1080-q90` (1920x1080 Q90). A durable
+  one-time settings revision replaces an older persisted profile selection without
+  changing historical profile IDs, metadata, originals, or the six-profile
+  programmatic/device-test matrix. Every Start creates a new session Gallery folder.
 - One original in public MediaStore Pictures after explicit first-Start consent;
-  private schema-v2 SQLite metadata/checksums, recovery, low-space safe stop,
-  persisted selection/intent, actual dimensions, bytes and last-image viewer.
-- Russian native Views, large tremor-tolerant Start/Pause/profile/view controls, status and diagnostics.
+  private schema-v4 SQLite frame metadata, versioned session/sample/attempt journal,
+  recovery, low-space safe stop, actual dimensions, bytes and internal read-only viewer.
+- On-device session diagnostics and paused/drained SAF ZIP report export. Reports
+  use report-local ordinals and contain no unique/personal/media identifier, image
+  bytes, public filename/folder, URI/path, hash, absolute wall time, or boot-relative
+  timestamp. Session-relative offsets preserve cadence and latency analysis; safe
+  phone/build/app facts remain.
+- Russian native Views, large tremor-tolerant Start/Pause/view/diagnostics controls and concise status.
   DOWN-anchored limited slip, UP-once and irreversible scroll/system cancellation;
   native performClick/accessibility actions, no long/double-press requirement.
   The page only scrolls when available height/text scaling requires it.
 
 No network permission, upload, server, VLM, HEVC, speech, global keys,
 accessibility service, kiosk, boot receiver, automatic camera restart, or
-lock-screen takeover. Other applications remain accessible. A bounded screen-off
-observation is recorded in the [main-agent evidence](docs/verification-2026-09-09.md),
-not an endurance guarantee. Faster sampling does not fix motion blur. All finalized
+lock-screen takeover. Other applications remain accessible. A historical bounded
+screen-off observation is recorded in the [2026-09-09 main-agent evidence](docs/verification-2026-09-09.md),
+not an endurance guarantee; sustained screen-off remains open for the current
+revision. Faster sampling does not fix motion blur. All finalized
 JPEGs are retained, including covered/dark scenes.
 Gallery, Google Photos and OneDrive may independently back up these public images.
 MemoTrace's lack of network permission does not prevent that. Public images may
@@ -38,7 +48,7 @@ are lost; reinstall cannot restore their index/ownership. Shipped v1 private fil
 are preserved on upgrade, not exported or made viewable automatically.
 No MemoTrace synchronization/backup or release publishing in this debug prototype.
 
-## Compare Profiles
+## Capture Profiles
 
 | Stable ID | Requested JPEG | Purpose |
 | --- | --- | --- |
@@ -46,17 +56,29 @@ No MemoTrace synchronization/backup or release publishing in this debug prototyp
 | `v1-4000x3000-q80` | 4000x3000 Q80, 4:3 | Compression control |
 | `v1-1920x1080-q90` | 1920x1080 Q90, 16:9 | Wide |
 | `v1-1920x1080-q80` | 1920x1080 Q80, 16:9 | Wide/compression |
-| `v1-1440x1080-q90` | 1440x1080 Q90, 4:3 | Experimental lower-volume default |
+| `v1-1440x1080-q90` | 1440x1080 Q90, 4:3 | Historical compact experiment |
 | `v1-1440x1080-q80` | 1440x1080 Q80, 4:3 | Compact/compression |
 
-Pause and wait for drain, choose profile, Start, record a repeatable scene, Pause,
-wait for drain, then choose the next profile and Start. Use **Open last JPEG** or Gallery/My Files at
+Normal UI recording is fixed to 1920x1080 Q90 for the current long-run phase;
+there is no profile selector. The six immutable definitions remain for historical
+metadata and bounded programmatic camera tests. Such a test may select each profile
+through the internal seam, Start, record a repeatable scene, Pause, and wait for drain.
+Use **Open last JPEG** or Gallery/My Files at
 `Pictures/MemoTrace/<profile>/<profile>_<UTC-time>_<session-UUID>/`.
 16:9 may crop the top/bottom of the 4:3 view. CameraX uses closest-lower-then-higher
 fallback; compare actual dimensions, not requested size alone. No application
 Bitmap rescale/re-encode. Q is a CameraX request, not a universal quality score.
 No battery/legibility superiority is claimed without benchmarking. A controlled
 same-scene comparison remains user work; the dated samples are not that benchmark.
+
+## Two-Hour Test
+
+The [unplugged two-hour operator checklist](docs/two-hour-recorder-checklist.md)
+uses only the normal on-device UI: Start, Pause, internal JPEG viewer, diagnostics,
+and SAF report export. Pause is not complete and export is not enabled until the
+outstanding image, final telemetry sample, terminal session row, and report-visible
+state are committed. The implementation/build tests do not constitute endurance,
+thermal, battery, body-mount, screen-off, or OEM MediaProvider evidence.
 
 ## Build And Verify
 
@@ -65,7 +87,7 @@ Build-Tools 36.0.0. No parent configuration, sibling source, or live server is
 needed. The wrapper downloads its checksum-pinned official Gradle distribution.
 
 ```bash
-./gradlew --no-daemon :capture-core:check :app:testDebugUnitTest :app:lintDebug spotlessCheck :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew --no-daemon clean :capture-core:check :app:testDebugUnitTest :app:lintDebug spotlessCheck :app:assembleDebug :app:assembleDebugAndroidTest
 ```
 
 `./gradlew spotlessApply` formats Kotlin/build scripts; it does not replace the
@@ -126,8 +148,8 @@ recorded in the profile evidence linked above, without replacing that failure re
 | --- | --- |
 | `capture-core/` | Pure JVM scheduler, state, motion/cover metrics and exhaustive policy tests |
 | `app/.../capture/` | Service lifecycle, bounded orchestration, CameraX side-effect boundary |
-| `app/.../storage/` | Durable local index, streaming checksum, recovery and safe stop |
-| `app/.../ui/` | Native accessible controls and honest status |
+| `app/.../storage/` | Durable frame index/session journal, aggregation, report encoding and recovery |
+| `app/.../ui/` | Native accessible controls, internal viewer, diagnostics and honest status |
 | `app/src/test/` | Robolectric native SQLite/filesystem and fake-camera service/UI regressions |
 | `app/src/androidTest/` | Real Android storage, UI and foreground-camera lifecycle tests |
 
@@ -142,9 +164,11 @@ mutates source tests; see the quality document for expected gate failures.
 ## Documentation
 
 - [Architecture and recovery protocol](docs/recorder-architecture.md)
-- [MediaStore, schema v2 and migration](docs/media-storage.md)
+- [MediaStore, schema v4 and migration](docs/media-storage.md)
 - [Quality gates, versions and local results](docs/quality.md)
 - [Device verification and automation IDs](docs/device-verification.md)
+- [2026-09-10 MAIN long-run evidence](docs/long-run-verification-2026-09-10.md)
+- [Unplugged two-hour operator checklist](docs/two-hour-recorder-checklist.md)
 - [Connected-test host safety](docs/connected-test-safety.md)
 - [Linux toolchain and ADB setup](docs/development.md)
 - [Dependency provenance and notices](NOTICE.md)

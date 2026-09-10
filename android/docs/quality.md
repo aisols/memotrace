@@ -1,6 +1,44 @@
 # Android Quality Gates
 
-## Latest Profile Evidence
+## Long-Run Recorder Revision
+
+VersionCode 3 / versionName 0.3.0 includes the fixed ordinary 1920x1080 Q90 profile,
+schema-v4 session telemetry, internal read-only viewer, on-device diagnostics and
+paused/drained SAF report export. Focused Robolectric coverage includes v1/v2 schema
+migration with historical frames, successful/rolled-back v3-to-v4 migration, unchanged
+v4 reopen, frame-aware interruption recovery, lower/higher next-process uptime,
+synchronous CameraX callbacks/exceptions, injected journal faults, six-operation
+successful-frame durability, pre-invocation destruction cleanup, due/latency/battery
+aggregation, thermal coalescing, deterministic identifier-free/session-relative ZIP
+output, application-wide export reservation through blocked provider writes and
+Activity destruction, ten-frame incremental summary updates without per-save full
+queries, open-session query bounds, Q80/Q95 fixed-profile migration, internal viewer
+validation, polite live regions, and accessible action ordering/large text.
+
+The standard Android command is the implementation-owner gate for this revision.
+Connected tests are only assembled, not executed by the implementation owner. The
+unplugged two-hour run, physical battery/thermal behavior, body-worn framing,
+screen-off survival, OEM MediaProvider behavior, power loss and independent review
+remain main-agent/operator evidence; none is inferred from unit tests or APK assembly.
+
+Implementation-owner local result on 2026-09-10: the exact clean standard command
+passed 101 tasks, all executed. Core had 24 tests and app had 115 tests, with zero
+failures, errors, or skips. Core coverage was 132/132 lines and 151/152
+branches (99.34%), above the unchanged 90%/80% gates. Lint reported no issues;
+Spotless, debug APK assembly, and debug instrumentation APK assembly passed. No
+connected/device test or two-hour run was performed by the implementation owner.
+
+Separate [MAIN-observed evidence for the current uncommitted revision](long-run-verification-2026-09-10.md)
+records artifact hashes, an unlocked guarded 10/10 connected pass after an
+environment-blocked attempt, unresolved native cleanup, and a 3:14 normal-app smoke
+with viewer and SAF export checks. It does not establish the two-hour, sustained
+screen-off, body-worn, power-loss, restore, controlled benchmark, residue-free, or
+hosted-CI gates. Do not attribute those device actions to the implementation owner.
+
+## Dated Device Evidence
+
+The 2026-09-10 record above is the current working-revision device evidence; artifact
+hashes, rather than an invented commit ID, identify that uncommitted revision.
 
 [MAIN's 2026-09-09 profile record](profiles-verification-2026-09-09.md) covers code
 `6445bad`: clean command passed 101 tasks; 23 core + 82 app = 105 tests, zero
@@ -444,12 +482,13 @@ hosted runners are the reference device. Hosted CI has not been run by the build
 Historical [PR #2](https://github.com/aisols/memotrace/pull/2) review and bounded
 MAIN device observations are in the [v1 evidence](verification-2026-09-09.md),
 with remaining limitations; its hosted rerun was pending at that snapshot.
-For current profile status, [PR #3](https://github.com/aisols/memotrace/pull/3) is
-authoritative. [MAIN's dated profile record](profiles-verification-2026-09-09.md)
+For the historical profile revision, [PR #3](https://github.com/aisols/memotrace/pull/3)
+is authoritative. [MAIN's dated profile record](profiles-verification-2026-09-09.md)
 records `6445bad` with [CI run 34378499995 passed](https://github.com/aisols/memotrace/actions/runs/34378499995),
-not a guarantee for future HEADs. Latest-revision CI and unresolved required checks
-remain merge gates. Existing server/contracts have no
-executable targets; cross-component tests are not applicable to this no-network slice.
+not a guarantee for future HEADs. The current uncommitted long-run revision is
+identified separately in the [2026-09-10 evidence](long-run-verification-2026-09-10.md);
+hosted CI has not run for it. Latest-revision CI and unresolved required checks remain
+merge gates. Cross-component verification is not applicable to this Android-only revision.
 The Gradle action v5.0.0 reference is the peeled official commit
 `4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2`, resolved using
 `git ls-remote https://github.com/gradle/actions.git 'refs/tags/v5.0.0*'`, not its

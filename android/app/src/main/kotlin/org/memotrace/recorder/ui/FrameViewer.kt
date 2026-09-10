@@ -2,7 +2,6 @@ package org.memotrace.recorder.ui
 
 import android.app.Activity
 import android.content.ActivityNotFoundException
-import android.content.ClipData
 import android.content.Intent
 import androidx.core.net.toUri
 import org.memotrace.recorder.storage.Availability
@@ -12,11 +11,10 @@ object FrameViewer {
     fun intent(frame: SavedFrame?): Intent? {
         if (frame?.availability != Availability.AVAILABLE || frame.uri == null) return null
         val uri = frame.uri.toUri()
-        if (uri.scheme != "content" || uri.authority != "media") return null
+        if (!JpegViewerActivity.isMediaImageUri(uri)) return null
         return Intent(Intent.ACTION_VIEW).apply {
+            setClassName("org.memotrace.recorder", JpegViewerActivity::class.java.name)
             setDataAndType(uri, "image/jpeg")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            clipData = ClipData.newRawUri("MemoTrace JPEG", uri)
         }
     }
 

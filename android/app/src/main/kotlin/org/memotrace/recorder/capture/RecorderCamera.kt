@@ -37,7 +37,7 @@ interface RecorderCamera {
 
     fun capture(
         output: OutputStream,
-        onComplete: (CaptureResult) -> Unit,
+        onComplete: (CaptureCompletion) -> Unit,
     )
 
     fun close()
@@ -126,7 +126,7 @@ class CameraXRecorderCamera(
 
     override fun capture(
         output: OutputStream,
-        onComplete: (CaptureResult) -> Unit,
+        onComplete: (CaptureCompletion) -> Unit,
     ) {
         check(!closed)
         disk.submit({ callback ->

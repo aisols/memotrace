@@ -22,6 +22,13 @@ class CaptureConfig(
     }
 }
 
+data class CaptureRequest(
+    val token: Long,
+    val requestElapsedMs: Long,
+    val scheduledDueElapsedMs: Long,
+    val intervalMs: Long,
+)
+
 /** Monotonic milliseconds only. A single owner serializes all calls. */
 class CapturePolicy(
     val config: CaptureConfig = CaptureConfig(),
@@ -72,12 +79,16 @@ class CapturePolicy(
     }
 
     /** No queued ticks or catch-up bursts. Busy includes durable persistence. */
-    fun request(now: Long): Long? {
+    fun request(now: Long): CaptureRequest? {
         if (state != State.RECORDING || pending != null) return null
         val last = lastRequest
-        if (last != null && now - last < intervalMs) return null
+        val interval = intervalMs
+        val due = last?.plus(interval) ?: now
+        if (now < due) return null
         lastRequest = now
-        return (++sequence).also { pending = it }
+        val token = ++sequence
+        pending = token
+        return CaptureRequest(token, now, due, interval)
     }
 
     fun timedOut(now: Long): Boolean = pending != null && now - checkNotNull(lastRequest) >= config.captureTimeoutMs

@@ -28,11 +28,17 @@ import org.junit.runner.RunWith
 import org.memotrace.capture.CaptureConfig
 import org.memotrace.capture.CaptureProfile
 import org.memotrace.capture.LumaMetrics
+import org.memotrace.recorder.capture.CaptureCompletion
 import org.memotrace.recorder.capture.CaptureDiskQueue
 import org.memotrace.recorder.capture.CaptureResult
 import org.memotrace.recorder.capture.RecorderCamera
 import org.memotrace.recorder.capture.RecorderService
+import org.memotrace.recorder.storage.CaptureAttemptRecord
+import org.memotrace.recorder.storage.FrameStore
+import org.memotrace.recorder.storage.LongRunReport
+import org.memotrace.recorder.storage.SessionDiagnostics
 import org.memotrace.recorder.storage.UnlinkStatus
+import org.memotrace.recorder.ui.DiagnosticsActivity
 import org.memotrace.recorder.ui.MainActivity
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
@@ -57,12 +63,16 @@ class FakeRecorderCamera : RecorderCamera {
     var profile: CaptureProfile? = null
     var result: (CaptureResult) -> Unit = {}
     var calls = 0
+    var starts = 0
     var closed = false
+    var synchronousResult: CaptureResult? = null
+    var throwOnCapture = false
 
     override fun start(
         onReady: () -> Unit,
         onError: () -> Unit,
     ) {
+        starts++
         closed = false
         ready = onReady
         error = onError
@@ -72,11 +82,19 @@ class FakeRecorderCamera : RecorderCamera {
 
     override fun capture(
         output: OutputStream,
-        onComplete: (CaptureResult) -> Unit,
+        onComplete: (CaptureCompletion) -> Unit,
     ) {
         calls++
         this.output = output
-        result = onComplete
+        if (throwOnCapture) throw IllegalStateException("synthetic_capture_exception")
+        result = {
+            val now = SystemClock.elapsedRealtime()
+            onComplete(CaptureCompletion(it, now, now))
+        }
+        synchronousResult?.let {
+            if (it == CaptureResult.SAVED) output.write(syntheticJpeg())
+            result(it)
+        }
     }
 
     override fun close() {
@@ -92,14 +110,32 @@ class FakeRecorderCamera : RecorderCamera {
 open class FakeCameraApplication : RecorderApplication() {
     val fake = FakeRecorderCamera()
     val media = FakeMediaDestination()
+    var diagnosticsLoads = 0
+    var summaryQueries = 0
+    var storeCheckpoint: (String) -> Unit = {}
 
     override fun createDestination() = media
+
+    override fun createStore() =
+        FrameStore(
+            archiveDirectory,
+            media,
+            checkpoint = {
+                if (it == "summary") summaryQueries++
+                storeCheckpoint(it)
+            },
+        )
 
     override fun createCamera(
         owner: LifecycleOwner,
         config: CaptureConfig,
         profile: CaptureProfile,
     ): RecorderCamera = fake.also { it.profile = profile }
+
+    override fun loadDiagnostics(complete: (SessionDiagnostics?) -> Unit) {
+        diagnosticsLoads++
+        super.loadDiagnostics(complete)
+    }
 }
 
 @RunWith(RobolectricTestRunner::class)
@@ -132,7 +168,7 @@ class RecorderLifecycleTest {
         }
     }
 
-    private fun start() {
+    private fun startBeforeCameraReady() {
         val reserved = checkNotNull(app.reserveStart())
         service.get().onStartCommand(
             Intent(app, RecorderService::class.java)
@@ -141,8 +177,22 @@ class RecorderLifecycleTest {
             0,
             1,
         )
+        settle()
+    }
+
+    private fun start() {
+        startBeforeCameraReady()
         app.fake.ready()
         settle()
+    }
+
+    private fun database(statement: String) {
+        app.io
+            .submit {
+                SQLiteDatabase.openDatabase(File(app.noBackupFilesDir, "recorder/index.sqlite").path, null, 0).use {
+                    it.execSQL(statement)
+                }
+            }.get(5, TimeUnit.SECONDS)
     }
 
     private fun pause() {
@@ -159,7 +209,11 @@ class RecorderLifecycleTest {
     @Test fun recordingOnlyAfterDurableSaveAndNoBacklog() {
         start()
         assertEquals(R.string.status_starting, app.status)
-        assertEquals(1, app.fake.calls)
+        assertEquals(
+            "status=${app.getString(app.status)} ready=${app.ready} sessionOpen=${app.sessionOpen} cameraStarts=${app.fake.starts}",
+            1,
+            app.fake.calls,
+        )
         assertNotNull(app.getSystemService(NotificationManager::class.java).activeNotifications.singleOrNull())
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(10))
         settle()
@@ -172,6 +226,248 @@ class RecorderLifecycleTest {
         assertEquals(R.string.status_paused, app.status)
         assertFalse(app.sessionOpen)
         assertFalse(ShadowPowerManager.getLatestWakeLock().isHeld)
+    }
+
+    @Test fun successfulFramesUpdateSummaryWithoutPerFrameSummaryQueries() {
+        start()
+        val baselineQueries = app.summaryQueries
+        repeat(10) { index ->
+            app.fake.save()
+            settle()
+            assertEquals(index + 1L, app.summary.count)
+            assertEquals(index + 1L, app.summary.sessionCount)
+            assertNotNull(app.summary.last)
+            assertEquals(baselineQueries, app.summaryQueries)
+            if (index < 9) {
+                shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(2))
+                settle()
+                assertEquals(index + 2, app.fake.calls)
+            }
+        }
+        pause()
+        assertEquals(baselineQueries + 1, app.summaryQueries)
+        assertEquals(10L, app.summary.count)
+        assertEquals(10L, app.summary.sessionCount)
+    }
+
+    @Test fun destroyAfterPreparationBeforeCameraInvocationAbandonsOutputAndFinishesAttempt() {
+        val prepared = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        app.storeCheckpoint = {
+            if (it == "camera_invoke_ready") {
+                prepared.countDown()
+                check(release.await(10, TimeUnit.SECONDS))
+            }
+        }
+        try {
+            startBeforeCameraReady()
+            val sessionId = checkNotNull(app.sessionId)
+            app.fake.ready()
+            shadowOf(Looper.getMainLooper()).idle()
+            assertTrue(prepared.await(5, TimeUnit.SECONDS))
+            assertEquals(1, app.media.writesOpen)
+            service.destroy()
+            release.countDown()
+            settle()
+            assertEquals(0, app.fake.calls)
+            assertEquals(0, app.media.writesOpen)
+            assertTrue(app.media.items.isEmpty())
+            assertFalse(app.sessionOpen)
+            val capture =
+                app.io
+                    .submit<CaptureAttemptRecord> {
+                        app.store
+                            .report(sessionId)!!
+                            .captures
+                            .single()
+                    }.get(5, TimeUnit.SECONDS)
+            assertEquals("CAMERA_FAILURE", capture.result)
+            assertEquals("STOPPED_BEFORE_CAMERA_INVOCATION", capture.failurePhase)
+        } finally {
+            release.countDown()
+            app.storeCheckpoint = {}
+        }
+    }
+
+    @Test fun synchronousCameraCompletionFollowsDurablePreInvocationPhase() {
+        app.fake.synchronousResult = CaptureResult.SAVED
+        start()
+        assertEquals(R.string.status_recording, app.status)
+        assertEquals(1L, app.summary.count)
+        assertEquals(0, app.media.writesOpen)
+        val sessionId = checkNotNull(app.sessionId)
+        pause()
+        val capture =
+            app.io
+                .submit<CaptureAttemptRecord> {
+                    app.store
+                        .report(sessionId)!!
+                        .captures
+                        .single()
+                }.get(5, TimeUnit.SECONDS)
+        assertEquals("SAVED", capture.result)
+        assertNotNull(capture.cameraInvokeReadyElapsedMs)
+        assertTrue(capture.cameraInvokeReadyElapsedMs!! <= capture.cameraTerminalElapsedMs!!)
+    }
+
+    @Test fun synchronousCameraExceptionRetainsDurablePreInvocationPhase() {
+        app.fake.throwOnCapture = true
+        start()
+        settle()
+        assertEquals(R.string.status_camera_error, app.status)
+        assertFalse(app.sessionOpen)
+        assertEquals(0, app.media.writesOpen)
+        assertTrue(app.media.items.isEmpty())
+        val capture =
+            app.io
+                .submit<CaptureAttemptRecord> {
+                    app.store
+                        .report(null)!!
+                        .captures
+                        .single()
+                }.get(5, TimeUnit.SECONDS)
+        assertEquals("CAMERA_FAILURE", capture.result)
+        assertNotNull(capture.cameraInvokeReadyElapsedMs)
+        assertNotNull(capture.cameraTerminalElapsedMs)
+    }
+
+    @Test fun preparedPhaseJournalFailureClosesAndAbandonsPendingFrame() {
+        startBeforeCameraReady()
+        database(
+            "CREATE TRIGGER reject_prepared BEFORE UPDATE ON capture_attempts " +
+                "WHEN NEW.prepare_complete_elapsed_ms IS NOT NULL BEGIN SELECT RAISE(FAIL, 'synthetic_database_failure'); END",
+        )
+        app.fake.ready()
+        settle()
+        assertEquals(R.string.status_storage_error, app.status)
+        assertFalse(app.ready)
+        assertFalse(app.sessionOpen)
+        assertEquals(0, app.media.writesOpen)
+        assertTrue(app.media.items.isEmpty())
+        assertEquals(0L, app.summary.count)
+    }
+
+    @Test fun cameraTelemetryFailureAfterDrainPublishesValidJpegThenStops() {
+        start()
+        val sessionId = checkNotNull(app.sessionId)
+        database(
+            "CREATE TRIGGER reject_camera_completed BEFORE UPDATE ON capture_attempts " +
+                "WHEN NEW.camera_terminal_elapsed_ms IS NOT NULL BEGIN SELECT RAISE(FAIL, 'synthetic_database_failure'); END",
+        )
+        app.fake.save()
+        settle()
+        assertEquals(R.string.status_storage_error, app.status)
+        assertFalse(app.ready)
+        assertFalse(app.sessionOpen)
+        assertEquals(1L, app.summary.count)
+        assertEquals(0, app.media.writesOpen)
+        assertFalse(
+            app.media.items.values
+                .single()
+                .pending,
+        )
+        assertEquals(
+            syntheticJpeg().size,
+            app.media.items.values
+                .single()
+                .bytes.size,
+        )
+        val report = app.io.submit<LongRunReport> { app.store.report(sessionId)!! }.get(5, TimeUnit.SECONDS)
+        assertEquals("FAILED", report.session.completionStatus)
+        assertEquals("STORAGE_FAILURE", report.session.terminalReason)
+        assertEquals("SAVED", report.captures.single().result)
+        assertEquals("SAVED_WITH_TELEMETRY_FAULT", report.captures.single().failurePhase)
+    }
+
+    @Test fun savedFinalCommitFailureStaysPendingAndRecoversCommittedFrame() {
+        start()
+        val sessionId = checkNotNull(app.sessionId)
+        database(
+            "CREATE TRIGGER reject_saved_attempt BEFORE UPDATE OF result ON capture_attempts " +
+                "WHEN OLD.result='PENDING' AND NEW.result='SAVED' " +
+                "BEGIN SELECT RAISE(FAIL, 'synthetic_saved_commit_failure'); END",
+        )
+        app.fake.save()
+        settle()
+        assertEquals(R.string.status_storage_error, app.status)
+        assertFalse(app.ready)
+        assertFalse(app.sessionOpen)
+        assertEquals(0, app.media.writesOpen)
+        assertFalse(
+            app.media.items.values
+                .single()
+                .pending,
+        )
+        val beforeRecovery =
+            app.io
+                .submit<List<Any?>> {
+                    SQLiteDatabase
+                        .openDatabase(
+                            File(app.noBackupFilesDir, "recorder/index.sqlite").path,
+                            null,
+                            SQLiteDatabase.OPEN_READONLY,
+                        ).use { db ->
+                            db
+                                .rawQuery(
+                                    "SELECT frames.state, frames.validated, capture_attempts.result, capture_attempts.failure_phase " +
+                                        "FROM capture_attempts JOIN frames ON frames.id=capture_attempts.frame_id " +
+                                        "WHERE capture_attempts.session_id=?",
+                                    arrayOf(sessionId),
+                                ).use { rows ->
+                                    check(rows.moveToFirst())
+                                    listOf(
+                                        rows.getInt(0),
+                                        rows.getInt(1),
+                                        rows.getString(2),
+                                        if (rows.isNull(3)) null else rows.getString(3),
+                                    )
+                                }
+                        }
+                }.get(5, TimeUnit.SECONDS)
+        assertEquals(listOf(0, 1, "PENDING", null), beforeRecovery)
+        assertEquals(0L, app.summary.count)
+
+        database("DROP TRIGGER reject_saved_attempt")
+        service.destroy()
+        val backend = app.media
+        val previous = app
+        app.io.submit { app.store.close() }.get(5, TimeUnit.SECONDS)
+        app.io.shutdown()
+        app =
+            object : FakeCameraApplication() {
+                fun attach(context: Context) = attachBaseContext(context)
+
+                override fun createDestination() = backend
+
+                override fun createStore() =
+                    FrameStore(
+                        archiveDirectory,
+                        backend,
+                        checkpoint = {
+                            if (it == "summary") summaryQueries++
+                            storeCheckpoint(it)
+                        },
+                    )
+            }.apply {
+                attach(previous.baseContext)
+                onCreate()
+            }
+        settle()
+
+        assertTrue(app.ready)
+        assertEquals(0, backend.writesOpen)
+        assertFalse(
+            backend.items.values
+                .single()
+                .pending,
+        )
+        assertEquals(1L, app.summary.count)
+        val report = app.io.submit<LongRunReport> { app.store.report(sessionId)!! }.get(5, TimeUnit.SECONDS)
+        assertEquals("FAILED", report.session.completionStatus)
+        assertEquals("STORAGE_FAILURE", report.session.terminalReason)
+        assertEquals("SAVED", report.captures.single().result)
+        assertEquals("RECOVERY_FRAME_COMMITTED", report.captures.single().failurePhase)
+        assertEquals(null, report.captures.single().commitCompleteElapsedMs)
     }
 
     @Test fun pauseDestroyThenLateSuccessCannotRestartOrDuplicate() {
@@ -213,6 +509,63 @@ class RecorderLifecycleTest {
         assertEquals(R.string.status_paused, app.status)
         assertEquals(0L, app.summary.count)
         assertFalse(app.sessionOpen)
+    }
+
+    @Test fun reportExportGuardWaitsForFrameDrainAndTerminalJournalCommit() {
+        start()
+        assertFalse(app.canExport)
+        pause()
+        assertTrue(app.sessionOpen)
+        assertFalse(app.canExport)
+        var report: LongRunReport? = null
+        assertEquals(null, app.reserveExport())
+        assertEquals(null, report)
+        app.fake.result(CaptureResult.CAMERA_FAILURE)
+        settle()
+        assertFalse(app.sessionOpen)
+        assertTrue(app.canExport)
+        val reservation = app.reserveExport()!!
+        assertFalse(app.canStart)
+        assertEquals(null, app.reserveStart())
+        app.loadReport(reservation) { report = it }
+        settle()
+        assertEquals("COMPLETE", report!!.session.completionStatus)
+        assertEquals("USER_PAUSE", report!!.session.terminalReason)
+        assertEquals("CAMERA_FAILURE", report!!.captures.single().result)
+        assertEquals(
+            "START",
+            report!!
+                .samples
+                .first()
+                .sample.reason,
+        )
+        assertEquals(
+            "END",
+            report!!
+                .samples
+                .last()
+                .sample.reason,
+        )
+        app.releaseExport(reservation)
+        assertTrue(app.canStart)
+    }
+
+    @Test fun openDiagnosticsDoesNotReloadAttemptHistoryUntilSessionCloses() {
+        start()
+        Robolectric.buildActivity(DiagnosticsActivity::class.java).setup().use {
+            settle()
+            assertEquals(1, app.diagnosticsLoads)
+            repeat(20) {
+                app.publish()
+                shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
+            }
+            settle()
+            assertEquals(1, app.diagnosticsLoads)
+            pause()
+            app.fake.result(CaptureResult.CAMERA_FAILURE)
+            settle()
+            assertEquals(2, app.diagnosticsLoads)
+        }
     }
 
     @Test fun timeoutReleasesWakeLockButReservesOutstandingSlot() {
@@ -321,7 +674,7 @@ class RecorderLifecycleTest {
         try {
             start()
             lateinit var callback: ImageCapture.OnImageSavedCallback
-            queue.submit({ callback = it }, app.fake.result)
+            queue.submit({ callback = it }, { app.fake.result(it.result) })
             val output = app.fake.output!!
             val writer =
                 disk.submit {
@@ -498,6 +851,8 @@ class RecorderLifecycleTest {
             app.fake.save()
             app.io.submit {}.get(5, TimeUnit.SECONDS)
             shadowOf(Looper.getMainLooper()).idle()
+            app.io.submit {}.get(5, TimeUnit.SECONDS)
+            shadowOf(Looper.getMainLooper()).idle()
             assertTrue(entered.await(5, TimeUnit.SECONDS))
             assertFalse(app.sessionOpen)
             assertFalse(app.canStart)
@@ -523,6 +878,7 @@ class RecorderLifecycleTest {
             assertEquals(null, app.reserveStart())
             assertEquals(null, app.consumeStart("forged-token"))
             service.get().onStartCommand(queued, 0, 1)
+            settle()
             app.fake.ready()
             settle()
             assertEquals(CaptureProfile.REFERENCE, app.fake.profile)
@@ -567,6 +923,7 @@ class RecorderLifecycleTest {
             assertEquals(startB.getStringExtra(RecorderService.EXTRA_SESSION), app.sessionId)
             assertTrue(app.sessionOpen)
             service.get().onStartCommand(startB, 0, 11)
+            settle()
             app.fake.ready()
             settle()
             assertEquals(CaptureProfile.WIDE_80, app.fake.profile)
@@ -584,6 +941,7 @@ class RecorderLifecycleTest {
             val activity = controller.get()
             activity.findViewById<Button>(R.id.start_recording).performClick()
             service.get().onStartCommand(checkNotNull(shadowOf(app).nextStartedService), 0, 1)
+            settle()
             app.fake.ready()
             settle()
             val oldNotification =
@@ -605,6 +963,7 @@ class RecorderLifecycleTest {
             assertEquals(3, shadowOf(service.get()).stopSelfId)
             assertEquals(startB.getStringExtra(RecorderService.EXTRA_SESSION), app.sessionId)
             service.get().onStartCommand(startB, 0, 4)
+            settle()
             app.fake.ready()
             settle()
             val newNotification =
@@ -762,16 +1121,9 @@ class RecorderLifecycleTest {
         activity.start().resume().visible().use {
             settle()
             assertTrue(it.get().findViewById<Button>(R.id.start_recording).isEnabled)
+            assertEquals(null, it.get().findViewById<TextView>(R.id.quarantined_count))
             assertEquals(
-                app.getString(R.string.quarantined_count, 1L),
-                it
-                    .get()
-                    .findViewById<TextView>(R.id.quarantined_count)
-                    .text
-                    .toString(),
-            )
-            assertEquals(
-                app.getString(R.string.saved_count, 1L),
+                app.getString(R.string.saved_count, 1L, 1L),
                 it
                     .get()
                     .findViewById<TextView>(R.id.saved_count)

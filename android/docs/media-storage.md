@@ -1,8 +1,8 @@
 # Profiles And Media Storage
 
-Implements ADR 0004; debug versionCode 2/versionName 0.2.0. No toolchain upgrades.
-The [README](../README.md) lists all six immutable profile IDs and the experimental
-1440x1080 Q90 default. This document describes intent and implementation, not new
+Implements ADR 0004; debug versionCode 3/versionName 0.3.0. No toolchain upgrades.
+The [README](../README.md) lists all six immutable profile IDs and the fixed ordinary
+1920x1080 Q90 long-run profile. This document describes intent and implementation, not new
 device evidence. The dated v1 verification report remains historical.
 
 ## Boundaries And Schema
@@ -28,14 +28,46 @@ streams hash/count and reads JPEG bounds only. LegacyArchive handles shipped v1
 files. CameraX alone encodes captures; the application never creates/rescales a
 Bitmap for capture. CameraX can do necessary cropping, orientation and EXIF work.
 
-`no_backup/recorder/index.sqlite` uses schema v2, synchronous FULL, DELETE journal
-and a non-destructive corruption handler. One transaction adds `locator_kind`
+`no_backup/recorder/index.sqlite` uses schema v4, synchronous FULL, DELETE journal
+and a non-destructive corruption handler. The v1-to-v2 transaction adds `locator_kind`
 (legacy/media), `uri`, `relative_path`, `profile_id`, `session_id`, requested
 width/height, `jpeg_quality`, negotiated width/height, actual width/height,
 `validated`, `availability`, then user_version=2. All v1 fields/other tables are
 preserved. Existing rows default to legacy/private with null dimensions and URI.
 No private original is exported, exposed or deleted. Legacy viewing is explicitly
 unavailable; migration does not invent dimensions or reinterpret v1 settings.
+
+The non-destructive v2-to-v3 transaction preserves frames and unrelated tables,
+then adds `capture_sessions`, `telemetry_samples`, and `capture_attempts` plus
+session/timeline indexes. Session rows contain requested profile/settings, wall and
+monotonic start/end facts, terminal reason/completeness, negotiated dimensions and
+safe build/app fields (manufacturer/model, Android release/SDK, build ID and app
+version). They never collect serial, IMEI, phone number, Android ID, accounts,
+location or full fingerprint. Startup retains every OPEN session and unfinished
+attempt without deleting it; a zero-frame session remains reportable.
+
+The non-destructive v3-to-v4 transaction preserves prior rows, renames the old
+camera-submit field to `camera_invoke_ready_elapsed_ms`, adds
+`scheduled_due_elapsed_ms`, and adds `recovery_detected_wall_ms`. The ready field is
+committed on serial IO immediately before posting CameraX invocation; it does not
+claim CameraX accepted a request. Recovery runs after frame recovery. A PENDING
+attempt whose linked frame is then committed becomes `SAVED` with phase
+`RECOVERY_FRAME_COMMITTED`; another unfinished attempt becomes `INTERRUPTED` with
+phase `PROCESS_INTERRUPTED`. Neither receives a fabricated commit monotonic time.
+An interrupted session keeps actual end wall/monotonic fields null and stores the
+later wall-clock recovery detection separately.
+
+Samples retain validated battery level/scale/percentage, raw charging status/plug, battery
+temperature, optional whole-device charge/current/energy properties, thermal status,
+and public/private-volume free bytes. Invalid level/scale pairs and unsupported
+properties are null. Battery delta requires actual START and END samples plus a
+compatible unplugged/discharging regime in every sample. Thermal callbacks retain
+Android's delivered value; while IO is busy, at most one additional sample is
+coalesced and keeps the maximum delivered severity. Attempt rows record effective
+scheduled due, request, prepare completion, durable pre-invocation readiness,
+CameraX terminal callback, writer/disk drain and final commit using monotonic values
+and explicit phases. Pipeline latency is request-to-final-commit; successful-save
+latency is writer-drained-to-final-commit. Neither is shutter timing.
 
 The existing integer `state` has three meanings: 0 pending, 1 committed, and
 2 (`QUARANTINED`) terminal unvalidated uncertainty. Quarantined rows retain
@@ -45,9 +77,11 @@ No additional table/column or destructive migration is required for this state.
 
 ## Commit And Recovery
 
-1. Check the 128 MiB free-space reserve, then commit `state=0, validated=0` with
-   UUID/path/request/session metadata BEFORE inserting MediaStore output. The
-   reserve is not a reservation; later ENOSPC still causes a storage error.
+1. Check the 128 MiB free-space reserve, then atomically commit the PENDING attempt
+   and `state=0, validated=0` frame with UUID/path/request/session metadata BEFORE
+   inserting MediaStore output. A failure before that transaction is still inserted
+   as a terminal PREPARE failure when SQLite remains usable. The reserve is not a
+   reservation; later ENOSPC still causes a storage error.
 2. Insert `IS_PENDING=1` into Images on `external_primary`, persist the URI, then
    verify exact owner/path/name and pending state. Open a PFD (`rw`) and expose
    its AutoCloseOutputStream to CameraX as a borrowed stream.
@@ -57,7 +91,18 @@ No additional table/column or destructive migration is required for this state.
 4. Publish with owner/path/name/IS_PENDING predicates; require one updated row.
    A subsequent query still reporting pending is an error. Absence/access loss
    after successful update is instead an external availability change: commit
-   historical `state=1` with MISSING/INACCESSIBLE (or changed/trashed) status.
+   historical `state=1` with MISSING/INACCESSIBLE (or changed/trashed) status and
+   atomically finalize the attempt as SAVED.
+
+A normal successful frame has exactly six SQLite durability operations: (1) one
+transaction inserting its attempt and initial frame rows, (2) the provider URI
+update, (3) one combined prepare-complete/pre-invocation update, (4) the CameraX
+terminal/writer-drained update, (5) the validated metadata update before publish,
+and (6) one transaction committing `state=1` and finalizing the attempt as SAVED.
+The first and last operations each contain two SQL row writes but one durability
+boundary. Session start/end and periodic telemetry are separate session operations.
+The URI and validated boundaries cannot be merged across MediaStore insertion or
+publication without losing the documented crash-recovery distinctions.
 
 There is no SQLite/MediaStore atomic transaction. Errors from insert/query/open,
 write/fsync/close/read, publication or index commit are not successful captures.
@@ -65,6 +110,14 @@ Post-acknowledgement availability changes do not turn a successful publication
 into a storage failure or stop recording.
 Caller-owned resources close after drain even on errors; runtime storage errors
 disable Start pending process-start recovery, never recovery alongside a writer.
+Attempt-journal success never chooses frame publication: after a drained CameraX
+`SAVED`, FrameStore still validates and publishes the JPEG. A simultaneous journal
+fault stops the service and is reported as storage failure without discarding that
+valid original. If the combined frame/attempt SAVED transaction fails, its attempt
+stays PENDING: startup first recovers the frame and then globally reconciles that
+attempt as SAVED/RECOVERY_FRAME_COMMITTED or INTERRUPTED/PROCESS_INTERRUPTED, even
+when the prior process already marked its session FAILED. Only actual non-save
+outcomes take the immediate typed-finalization and abandon path.
 Typed cleanup uncertainty alone is different: after an acknowledged abort/failure
 and the writer barrier, abandon durably quarantines the unvalidated record. Pause
 then remains PAUSED/ready for another Start; the aborted frame is never a save.
@@ -210,8 +263,12 @@ Gallery. Projection explicitly includes IS_TRASHED with MATCH_INCLUDE: trash is
 unavailable and ineligible for viewing, never automatically restored/deleted.
 Missing, changed byte size/name/path/owner, pending or inaccessible items
 get non-blocking availability status; original hash/bytes/dimensions remain intact.
-Unchanged availability avoids unnecessary DB writes. Per-frame summaries do not
-open N images. Full history reconciliation is deferred while reserved, recording
+Unchanged availability avoids unnecessary DB writes. A successful final transaction
+returns an authoritative committed-frame delta; the Application increments global
+and current-session counts and replaces last-frame metadata without a full summary
+query on each save. Full summaries remain for startup, terminal drain, failure or
+quarantine reconciliation, and explicit refresh; they do not open N images. Full
+history reconciliation is deferred while reserved, recording
 or draining; it runs after Pause/drain on the serial IO lane. While an idle full
 sweep runs, Start is disabled with archive-checking status. Thus it cannot occupy
 the capture lane behind a newly started camera and consume its 30-second watchdog.
@@ -219,21 +276,41 @@ No watchdog increase. A last-view check is bounded to that single item and can
 run during recording. A fatal SQLite refresh failure immediately routes through
 the service's stop/drain path; Pause remains usable while the session is open,
 and a late successful save cannot overwrite the storage error or resume capture.
-Last-view additionally opens/closes that one input, then ACTION_VIEW grants only
-read access to one content URI via data/ClipData. Missing viewer/access failure is
-explained visibly; a file may still disappear after the check. Same-size edits are
+Last-view additionally opens/closes that one input during availability refresh, then
+an explicit nonexported read-only Activity revalidates indexed AVAILABLE state and
+the MediaStore image URI/MIME. No external URI permission, edit/share/delete action,
+or second image copy is added. A file may still disappear after the check. Same-size edits are
 not detected without rehash, and bounds/framing validation is not full decoding.
 
 Consent is a stable private preference `public_pictures_consent_v1`, accepted by
 an accessible first-Start dialog; cancel records/publishes nothing. Service Start
-also checks it. Profile preference `profile_id` updates only when ready and fully
-drained; stale dialogs cannot retarget an in-flight request. Native large-font,
+also checks it. Profile preference `profile_id` is migrated with
+`fixed_profile_revision=1` to `v1-1920x1080-q90`; normal startup uses that fixed
+profile and exposes no selector. The internal test seam can still exercise immutable
+profiles in-process. Native large-font,
 scroll/gesture cancellation and accessibility-click behavior remain in effect.
 
 MemoTrace has no network or broad photo permission, but public Pictures can be
 backed up/shared by Gallery/Photos/OneDrive independently. Public images may
 survive uninstall/data clearing; index, preferences and private legacy files do
 not. Reinstall does not restore the lost index or old app ownership.
+
+Diagnostics queries one session and indexed frame facts only. Export is guarded by
+fully paused/drained application state and produces UTF-8 `manifest.json`,
+`sessions.csv`, `samples.csv`, and `captures.csv` through SAF. An application-wide
+reservation disables Start before report acquisition and remains through picker and
+confirmed stream close. Cancellation, pre-write failure, or Activity destruction
+before writing releases it; destruction during a provider write retains it until
+that stream attempt finishes and closes.
+The ZIP and suggested filename exclude persistent session/attempt/frame/sample IDs,
+public filename/folder correlators, URI/path/hash, images, and other unique or
+personal identifiers. It also omits absolute wall-clock and elapsedRealtime values;
+deterministic report-local ordinals and offsets from session start preserve ordering,
+gaps, overruns, phase durations, and available session duration. Recovery is a flag,
+not an exported detection timestamp. Safe manufacturer/model/OS/build/app-version
+facts remain. The chosen document provider
+may independently cloud-sync the report. Private journal retention currently follows
+app private-data retention; no diagnostics deletion exists.
 
 ## Verification Limits
 

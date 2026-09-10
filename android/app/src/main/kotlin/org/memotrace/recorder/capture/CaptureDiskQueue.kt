@@ -9,10 +9,17 @@ import java.util.concurrent.Executors
 
 enum class CaptureResult { SAVED, CAMERA_FAILURE, STORAGE_FAILURE }
 
+data class CaptureCompletion(
+    val result: CaptureResult,
+    val cameraTerminalElapsedMs: Long,
+    val diskDrainedElapsedMs: Long,
+)
+
 /** Main-thread submissions/terminal callbacks; one owned serial CameraX processing lane. */
 class CaptureDiskQueue(
     private val main: Executor,
     private val disk: ExecutorService = Executors.newSingleThreadExecutor(),
+    private val elapsedRealtime: () -> Long = android.os.SystemClock::elapsedRealtime,
 ) {
     val executor: Executor get() = disk
     private var pending = false
@@ -20,7 +27,7 @@ class CaptureDiskQueue(
 
     fun submit(
         submit: (ImageCapture.OnImageSavedCallback) -> Unit,
-        onComplete: (CaptureResult) -> Unit,
+        onComplete: (CaptureCompletion) -> Unit,
     ) {
         check(Looper.myLooper() == Looper.getMainLooper())
         check(!closed && !pending)
@@ -31,13 +38,15 @@ class CaptureDiskQueue(
             check(Looper.myLooper() == Looper.getMainLooper())
             if (terminal) return
             terminal = true
+            val terminalElapsedMs = elapsedRealtime()
             // 1.5.3 submits ProcessingNode work and aborts on main. Aborted inputs cannot
             // enqueue more work. This FIFO barrier also waits for its low-memory worker.
             disk.execute {
+                val drainedElapsedMs = elapsedRealtime()
                 main.execute {
                     pending = false
                     if (closed) disk.shutdown()
-                    onComplete(result)
+                    onComplete(CaptureCompletion(result, terminalElapsedMs, drainedElapsedMs))
                 }
             }
         }

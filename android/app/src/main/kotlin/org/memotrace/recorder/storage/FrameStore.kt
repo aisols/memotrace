@@ -6,6 +6,7 @@ import android.database.DatabaseErrorHandler
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteDatabaseCorruptException
 import android.os.StatFs
+import android.os.SystemClock
 import androidx.core.database.sqlite.transaction
 import org.memotrace.capture.CaptureSession
 import java.io.File
@@ -43,11 +44,24 @@ class SavedFrame(
     val profileId: String? = null,
 )
 
+class CommittedFrame(
+    val savedWallMs: Long,
+    val frame: SavedFrame,
+)
+
 class ArchiveSummary(
     val count: Long,
     val lastSavedMs: Long?,
     val last: SavedFrame? = null,
     val quarantinedCount: Long = 0,
+    val sessionCount: Long = 0,
+)
+
+class ViewerFrame(
+    val uri: String,
+    val bytes: Long?,
+    val width: Int?,
+    val height: Int?,
 )
 
 /** Only the application's serial IO executor may use this store. Recovery is startup-only. */
@@ -58,7 +72,9 @@ class FrameStore(
     private val checkpoint: (String) -> Unit = {},
 ) : AutoCloseable {
     private val database: SQLiteDatabase
+    private lateinit var journal: SessionJournal
     private var acquisitionStarted = false
+    private var frameRecoveryCompleted = false
 
     init {
         if (!root.isDirectory) {
@@ -77,7 +93,8 @@ class FrameStore(
             database.rawQuery("PRAGMA journal_mode=DELETE", null).use {
                 check(it.moveToFirst() && it.getString(0).equals("delete", ignoreCase = true)) { "journal_mode" }
             }
-            check(database.version in 0..2) { "unsupported_archive_version" }
+            check(database.version in 0..4) { "unsupported_archive_version" }
+            val previousVersion = database.version
             database.transaction {
                 database.execSQL(
                     """
@@ -110,9 +127,12 @@ class FrameStore(
                     }
                 }
                 database.execSQL("CREATE INDEX IF NOT EXISTS frames_state ON frames(state)")
-                database.version = 2
+                SessionJournal.createSchema(database)
+                if (previousVersion == 3) SessionJournal.migrateV3ToV4(database)
+                database.version = 4
                 checkpoint("migration")
             }
+            journal = SessionJournal(database)
             FileChannel.open(root.toPath(), StandardOpenOption.READ).use { it.force(true) }
         } catch (failure: Exception) {
             database.close()
@@ -120,15 +140,28 @@ class FrameStore(
         }
     }
 
-    fun prepare(request: FrameRequest): PendingFrame {
+    fun prepare(request: FrameRequest): PendingFrame = prepare(request, null)
+
+    fun prepareCapture(
+        attempt: CaptureAttemptStart,
+        request: FrameRequest,
+    ): PendingFrame {
+        require(attempt.sessionId == request.session.id) { "attempt_session" }
+        require(attempt.requestWallMs == request.wallMs && attempt.requestElapsedMs == request.elapsedMs) { "attempt_request" }
+        require(attempt.requestedIntervalMs == request.intervalMs) { "attempt_interval" }
+        return prepare(request, attempt)
+    }
+
+    private fun prepare(
+        request: FrameRequest,
+        attempt: CaptureAttemptStart?,
+    ): PendingFrame {
         check(availableBytes() >= RESERVE_BYTES) { "low_disk" }
         acquisitionStarted = true
         val id = UUID.randomUUID().toString()
         val identity = MediaIdentity("$id.jpg", media.prefix + request.session.relativePath)
         val profile = request.session.profile
-        database.insertOrThrow(
-            "frames",
-            null,
+        val values =
             ContentValues().apply {
                 put("id", id)
                 put("request_wall_ms", request.wallMs)
@@ -146,12 +179,22 @@ class FrameStore(
                 put("negotiated_width", request.negotiatedWidth)
                 put("negotiated_height", request.negotiatedHeight)
                 put("availability", Availability.INACCESSIBLE.name)
-            },
-        )
+            }
+        if (attempt == null) {
+            database.insertOrThrow("frames", null, values)
+            checkpoint("db_frame")
+        } else {
+            database.transaction {
+                journal.beginAttempt(attempt)
+                database.insertOrThrow("frames", null, values)
+            }
+            checkpoint("db_attempt_frame")
+        }
         checkpoint("prepared")
         val uri = media.insert(identity)
         checkpoint("media_inserted")
         update(id, ContentValues().apply { put("uri", uri) })
+        checkpoint("db_uri")
         checkpoint("uri_saved")
         val entry = checkNotNull(media.inspect(uri)) { "pending_missing" }
         requireOwned(entry, identity)
@@ -170,7 +213,21 @@ class FrameStore(
     fun finish(
         frame: PendingFrame,
         savedWallMs: Long,
-    ) {
+    ): CommittedFrame = finish(frame, savedWallMs, null, null)
+
+    fun finishCapture(
+        frame: PendingFrame,
+        attemptId: String,
+        savedWallMs: Long,
+        failurePhase: String?,
+    ): CommittedFrame = finish(frame, savedWallMs, attemptId, failurePhase)
+
+    private fun finish(
+        frame: PendingFrame,
+        savedWallMs: Long,
+        attemptId: String?,
+        failurePhase: String?,
+    ): CommittedFrame {
         frame.output.use {
             it.sync()
             checkpoint("file_synced")
@@ -188,19 +245,32 @@ class FrameStore(
                 put("validated", 1)
             },
         )
+        checkpoint("db_validated")
         checkpoint("validated")
         requireOwned(checkNotNull(media.inspect(frame.uri)) { "pending_missing" }, frame.identity)
         media.publish(frame.uri, frame.identity)
         checkpoint("published")
         val row = records("id=?", arrayOf(frame.id)).single()
-        update(
-            frame.id,
-            ContentValues().apply {
-                put("state", 1)
-                put("availability", availability(row).name)
-            },
-        )
+        val committed =
+            CommittedFrame(
+                savedWallMs,
+                SavedFrame(frame.uri, row.path, row.bytes, row.width, row.height, availability(row), row.profileId),
+            )
+        database.transaction {
+            update(
+                frame.id,
+                ContentValues().apply {
+                    put("state", 1)
+                    put("availability", committed.frame.availability.name)
+                },
+            )
+            if (attemptId != null) {
+                journal.finishAttempt(attemptId, SystemClock.elapsedRealtime(), "SAVED", failurePhase)
+            }
+        }
+        checkpoint(if (attemptId == null) "db_frame_commit" else "db_frame_attempt_commit")
         checkpoint("committed")
+        return committed
     }
 
     fun abandon(frame: PendingFrame) {
@@ -280,6 +350,7 @@ class FrameStore(
             )
         }
         reconcile()
+        frameRecoveryCompleted = true
     }
 
     private fun cleanup(row: Record) {
@@ -338,7 +409,8 @@ class FrameStore(
             Availability.INACCESSIBLE
         }
 
-    fun summary(): ArchiveSummary {
+    fun summary(sessionId: String? = null): ArchiveSummary {
+        checkpoint("summary")
         val count =
             database.rawQuery("SELECT COUNT(*) FROM frames WHERE state=1", null).use {
                 it.moveToFirst()
@@ -350,6 +422,18 @@ class FrameStore(
                 it.moveToFirst()
                 it.getLong(0)
             }
+        val selectedSession =
+            sessionId
+                ?: database.rawQuery("SELECT id FROM capture_sessions ORDER BY rowid DESC LIMIT 1", null).use {
+                    if (it.moveToFirst()) it.getString(0) else null
+                }
+        val sessionCount =
+            selectedSession?.let { id ->
+                database.rawQuery("SELECT COUNT(*) FROM frames WHERE state=1 AND session_id=?", arrayOf(id)).use {
+                    check(it.moveToFirst())
+                    it.getLong(0)
+                }
+            } ?: 0
         return ArchiveSummary(
             count,
             row?.savedMs,
@@ -357,8 +441,87 @@ class FrameStore(
                 SavedFrame(it.uri, it.path, it.bytes, it.width, it.height, it.availability, it.profileId)
             },
             quarantined,
+            sessionCount,
         )
     }
+
+    fun viewerFrame(uri: String): ViewerFrame? {
+        val row = records("state=1 AND validated=1 AND availability='AVAILABLE' AND uri=?", arrayOf(uri)).singleOrNull() ?: return null
+        return ViewerFrame(uri, row.bytes, row.width, row.height)
+    }
+
+    fun startCaptureSession(
+        session: SessionStart,
+        sample: TelemetrySample,
+    ) = journal.start(session, sample)
+
+    fun recoverOpenSessions(recoveryDetectedWallMs: Long): Int {
+        check(frameRecoveryCompleted) { "frame_recovery_required" }
+        return journal.recoverOpenSessions(recoveryDetectedWallMs)
+    }
+
+    fun updateNegotiatedSize(
+        sessionId: String,
+        width: Int,
+        height: Int,
+    ) = journal.setNegotiatedSize(sessionId, width, height)
+
+    fun addTelemetrySample(
+        sessionId: String,
+        sample: TelemetrySample,
+    ) = journal.sample(sessionId, sample)
+
+    fun endCaptureSession(
+        sessionId: String,
+        endWallMs: Long,
+        endElapsedMs: Long,
+        terminalReason: String,
+        completionStatus: String,
+        sample: TelemetrySample,
+    ) = journal.end(sessionId, endWallMs, endElapsedMs, terminalReason, completionStatus, sample)
+
+    fun beginCaptureAttempt(attempt: CaptureAttemptStart) = journal.beginAttempt(attempt)
+
+    fun failCapturePreparation(
+        attempt: CaptureAttemptStart,
+        elapsedMs: Long,
+        failurePhase: String,
+    ) = journal.failPreparation(attempt, elapsedMs, failurePhase)
+
+    fun markCameraInvokeReady(
+        attemptId: String,
+        frameId: String,
+        prepareElapsedMs: Long,
+        invokeReadyElapsedMs: Long,
+    ) {
+        journal.cameraInvokeReady(attemptId, frameId, prepareElapsedMs, invokeReadyElapsedMs)
+        checkpoint("db_pre_camera")
+        checkpoint("camera_invoke_ready")
+    }
+
+    fun markCameraCompleted(
+        attemptId: String,
+        terminalElapsedMs: Long,
+        diskDrainedElapsedMs: Long,
+    ) {
+        journal.cameraCompleted(attemptId, terminalElapsedMs, diskDrainedElapsedMs)
+        checkpoint("db_camera_completed")
+        checkpoint("camera_completed")
+    }
+
+    fun finishCaptureAttempt(
+        attemptId: String,
+        elapsedMs: Long,
+        result: String,
+        failurePhase: String?,
+    ) = journal.finishAttempt(attemptId, elapsedMs, result, failurePhase)
+
+    fun diagnostics(
+        sessionId: String?,
+        nowElapsedMs: Long,
+    ): SessionDiagnostics? = journal.diagnostics(sessionId, nowElapsedMs)
+
+    fun report(sessionId: String?): LongRunReport? = journal.report(sessionId)
 
     private fun requireOwned(
         entry: MediaEntry,

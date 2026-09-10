@@ -153,7 +153,9 @@ class RecorderDeviceTest {
             onView(withId(R.id.pause_recording)).check(matches(withText(R.string.pause)))
             onView(withId(R.id.record_status)).check(matches(withText(R.string.status_paused)))
             it.recreate()
-            onView(withId(R.id.saved_count)).check(matches(withText(app.getString(R.string.saved_count, app.summary.count))))
+            onView(withId(R.id.saved_count)).check(
+                matches(withText(app.getString(R.string.saved_count, app.summary.sessionCount, app.summary.count))),
+            )
             it.onActivity { activity ->
                 activity.startService(
                     Intent(activity, RecorderService::class.java)

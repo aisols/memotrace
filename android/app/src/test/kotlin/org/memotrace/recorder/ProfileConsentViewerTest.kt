@@ -4,10 +4,19 @@ import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
+import android.content.ContentProvider
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ProviderInfo
+import android.database.Cursor
+import android.net.Uri
 import android.os.Looper
+import android.os.ParcelFileDescriptor
+import android.view.View
 import android.widget.Button
+import android.widget.ImageView
+import android.widget.TextView
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
@@ -21,11 +30,14 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.memotrace.capture.CaptureProfile
+import org.memotrace.capture.CaptureSession
 import org.memotrace.recorder.capture.CameraXRecorderCamera
 import org.memotrace.recorder.capture.RecorderService
 import org.memotrace.recorder.storage.Availability
+import org.memotrace.recorder.storage.FrameRequest
 import org.memotrace.recorder.storage.SavedFrame
 import org.memotrace.recorder.ui.FrameViewer
+import org.memotrace.recorder.ui.JpegViewerActivity
 import org.memotrace.recorder.ui.MainActivity
 import org.memotrace.recorder.ui.TremorButton
 import org.robolectric.Robolectric
@@ -34,6 +46,10 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowAlertDialog
+import org.robolectric.shadows.ShadowContentResolver
+import org.robolectric.shadows.ShadowStatFs
+import java.io.File
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 class MissingViewerActivity : Activity() {
@@ -44,6 +60,51 @@ class FailingStartActivity : MainActivity() {
     override fun startForegroundService(service: Intent): ComponentName? = throw IllegalStateException("synthetic_start_failure")
 }
 
+class ViewerProvider(
+    private val file: File,
+    private val opened: CountDownLatch,
+    private val release: CountDownLatch,
+) : ContentProvider() {
+    override fun onCreate() = true
+
+    override fun getType(uri: Uri) = "image/jpeg"
+
+    override fun openFile(
+        uri: Uri,
+        mode: String,
+    ): ParcelFileDescriptor {
+        opened.countDown()
+        check(release.await(5, TimeUnit.SECONDS))
+        return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+    }
+
+    override fun query(
+        uri: Uri,
+        projection: Array<out String>?,
+        selection: String?,
+        selectionArgs: Array<out String>?,
+        sortOrder: String?,
+    ): Cursor? = null
+
+    override fun insert(
+        uri: Uri,
+        values: ContentValues?,
+    ): Uri? = null
+
+    override fun delete(
+        uri: Uri,
+        selection: String?,
+        selectionArgs: Array<out String>?,
+    ) = 0
+
+    override fun update(
+        uri: Uri,
+        values: ContentValues?,
+        selection: String?,
+        selectionArgs: Array<out String>?,
+    ) = 0
+}
+
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36], application = FakeCameraApplication::class)
 class ProfileConsentViewerTest {
@@ -51,6 +112,7 @@ class ProfileConsentViewerTest {
 
     @Before fun setup() {
         app = RuntimeEnvironment.getApplication() as FakeCameraApplication
+        ShadowStatFs.registerStats(app.noBackupFilesDir.path, 1_000_000, 500_000, 500_000)
         settle()
         assertTrue(app.ready)
     }
@@ -114,33 +176,56 @@ class ProfileConsentViewerTest {
         }
     }
 
-    @Test fun persistedProfileAndConsentSurviveNewApplicationAndInvalidIdIsRejected() {
-        assertTrue(app.selectProfile(CaptureProfile.WIDE_80.id))
+    @Test fun fixedProfileMigrationOverridesPersistedQ80AndQ95WhileConsentSurvives() {
         assertFalse(app.selectProfile("../bad"))
         assertTrue(app.consentToPublicPictures())
-        val restarted =
-            object : FakeCameraApplicationForRestart() {}.apply {
-                attach(app.baseContext)
-                onCreate()
-            }
-        restarted.io.submit {}.get(5, TimeUnit.SECONDS)
-        shadowOf(Looper.getMainLooper()).idle()
-        assertEquals(CaptureProfile.WIDE_80, restarted.selectedProfile)
-        assertTrue(restarted.publicStorageConsent)
-        assertFalse(restarted.sessionOpen)
-        restarted.io.submit { restarted.store.close() }.get(5, TimeUnit.SECONDS)
-        restarted.io.shutdown()
+        for (persisted in listOf(CaptureProfile.WIDE_80, CaptureProfile.REFERENCE)) {
+            assertTrue(
+                app
+                    .getSharedPreferences("record_state", 0)
+                    .edit()
+                    .putString("profile_id", persisted.id)
+                    .remove("fixed_profile_revision")
+                    .commit(),
+            )
+            val restarted =
+                object : FakeCameraApplicationForRestart() {}.apply {
+                    attach(app.baseContext)
+                    onCreate()
+                }
+            restarted.io.submit {}.get(5, TimeUnit.SECONDS)
+            shadowOf(Looper.getMainLooper()).idle()
+            assertEquals(CaptureProfile.WIDE_90, restarted.selectedProfile)
+            assertEquals(
+                CaptureProfile.WIDE_90.id,
+                restarted.getSharedPreferences("record_state", 0).getString("profile_id", null),
+            )
+            assertEquals(
+                RecorderApplication.FIXED_PROFILE_REVISION,
+                restarted.getSharedPreferences("record_state", 0).getInt("fixed_profile_revision", 0),
+            )
+            assertTrue(restarted.publicStorageConsent)
+            assertFalse(restarted.sessionOpen)
+            restarted.io.submit { restarted.store.close() }.get(5, TimeUnit.SECONDS)
+            restarted.io.shutdown()
+        }
     }
 
-    @Test fun staleProfileDialogCannotChangeBusySession() {
+    @Test fun normalMainHasNoProfileSelectorAndProgrammaticSeamRejectsBusySession() {
         Robolectric.buildActivity(MainActivity::class.java).setup().use { controller ->
-            controller.get().findViewById<Button>(R.id.select_profile).performClick()
-            val dialog = ShadowAlertDialog.getLatestAlertDialog()
+            assertNull(controller.get().findViewById<Button>(R.id.select_profile))
+            assertEquals(
+                app.getString(R.string.fixed_profile),
+                controller
+                    .get()
+                    .findViewById<TextView>(R.id.fixed_profile)
+                    .text
+                    .toString(),
+            )
             app.sessionOpen = true
             app.publish()
-            assertFalse(controller.get().findViewById<Button>(R.id.select_profile).isEnabled)
-            dialog.findViewById<Button>(R.id.profile_reference).performClick()
-            assertEquals(CaptureProfile.DEFAULT, app.selectedProfile)
+            assertFalse(app.selectProfile(CaptureProfile.REFERENCE.id))
+            assertEquals(CaptureProfile.WIDE_90, app.selectedProfile)
             app.sessionOpen = false
         }
     }
@@ -178,14 +263,15 @@ class ProfileConsentViewerTest {
         }
     }
 
-    @Test fun viewerOnlyGrantsReadToOneContentUriAndHandlesUnavailableViewer() {
+    @Test fun viewerUsesOnlyExplicitInternalIntentWithoutUriGrants() {
         val saved = SavedFrame("content://media/external_primary/images/media/42", "Pictures/test/", 123, 16, 12, Availability.AVAILABLE)
         val intent = FrameViewer.intent(saved)!!
         assertEquals(Intent.ACTION_VIEW, intent.action)
         assertEquals("image/jpeg", intent.type)
         assertEquals(saved.uri, intent.data.toString())
-        assertEquals(Intent.FLAG_GRANT_READ_URI_PERMISSION, intent.flags)
-        assertEquals(intent.data, intent.clipData!!.getItemAt(0).uri)
+        assertEquals(0, intent.flags)
+        assertNull(intent.clipData)
+        assertEquals(JpegViewerActivity::class.java.name, intent.component!!.className)
         for (status in Availability.entries.filter { it != Availability.AVAILABLE }) {
             assertNull(FrameViewer.intent(SavedFrame(saved.uri, saved.path, 123, 16, 12, status)))
         }
@@ -194,7 +280,85 @@ class ProfileConsentViewerTest {
         Robolectric.buildActivity(MissingViewerActivity::class.java).setup().use { assertFalse(FrameViewer.open(it.get(), saved)) }
         Robolectric.buildActivity(Activity::class.java).setup().use {
             assertTrue(FrameViewer.open(it.get(), saved))
-            assertEquals(saved.uri, shadowOf(it.get()).nextStartedActivity.data.toString())
+            val opened = shadowOf(it.get()).nextStartedActivity
+            assertEquals(saved.uri, opened.data.toString())
+            assertEquals(JpegViewerActivity::class.java.name, opened.component!!.className)
+        }
+    }
+
+    @Test fun internalViewerRejectsMalformedOrGrantedUrisAndShowsAccessibleErrorClose() {
+        for (uri in listOf("file:///private.jpg", "content://other/external_primary/images/media/1", "content://media/x/video/media/1")) {
+            assertFalse(JpegViewerActivity.isMediaImageUri(android.net.Uri.parse(uri)))
+        }
+        val granted =
+            Intent(Intent.ACTION_VIEW, android.net.Uri.parse("content://media/external_primary/images/media/1"))
+                .setClass(app, JpegViewerActivity::class.java)
+                .setType("image/jpeg")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        Robolectric.buildActivity(JpegViewerActivity::class.java, granted).setup().use {
+            assertEquals(
+                app.getString(R.string.viewer_error),
+                it
+                    .get()
+                    .findViewById<TextView>(R.id.viewer_status)
+                    .text
+                    .toString(),
+            )
+            val close = it.get().findViewById<Button>(R.id.viewer_close)
+            assertEquals(View.ACCESSIBILITY_LIVE_REGION_POLITE, it.get().findViewById<TextView>(R.id.viewer_status).accessibilityLiveRegion)
+            assertTrue(close is TremorButton)
+            assertTrue(close.minHeight >= 88)
+        }
+        val info = app.packageManager.getActivityInfo(ComponentName(app, JpegViewerActivity::class.java), 0)
+        assertFalse(info.exported)
+    }
+
+    @Test fun viewerDecodeUsesSeparateWorkerAndKeepsFitMode() {
+        val session = CaptureSession(CaptureProfile.WIDE_90, 1_000)
+        val saved =
+            app.io
+                .submit<SavedFrame> {
+                    val frame =
+                        app.store.prepare(
+                            FrameRequest(1_000, 100, 2_000, "settings", "SHADOW;unknown", session, 1920, 1080),
+                        )
+                    frame.output.stream.write(syntheticJpeg())
+                    app.store.finish(frame, 2_000)
+                    app.store.summary().last!!
+                }.get(5, TimeUnit.SECONDS)
+        val file = File(app.cacheDir, "viewer-test.jpg").apply { writeBytes(syntheticJpeg()) }
+        val opened = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val provider =
+            ViewerProvider(file, opened, release).apply {
+                attachInfo(app, ProviderInfo().apply { authority = "media" })
+            }
+        ShadowContentResolver.registerProviderInternal("media", provider)
+        val controller = Robolectric.buildActivity(JpegViewerActivity::class.java, FrameViewer.intent(saved)).setup()
+        try {
+            settle()
+            assertTrue(opened.await(5, TimeUnit.SECONDS))
+            app.io.submit {}.get(1, TimeUnit.SECONDS)
+            release.countDown()
+            for (attempt in 0 until 50) {
+                shadowOf(Looper.getMainLooper()).idle()
+                if (controller.get().findViewById<TextView>(R.id.viewer_status).text != app.getString(R.string.viewer_loading)) break
+                Thread.sleep(20)
+            }
+            val image = controller.get().findViewById<ImageView>(R.id.viewer_image)
+            val status =
+                controller
+                    .get()
+                    .findViewById<TextView>(R.id.viewer_status)
+                    .text
+                    .toString()
+            assertTrue(status != app.getString(R.string.viewer_loading))
+            if (image.drawable == null) assertEquals(app.getString(R.string.viewer_error), status)
+            assertEquals(ImageView.ScaleType.FIT_CENTER, image.scaleType)
+        } finally {
+            release.countDown()
+            controller.close()
+            file.delete()
         }
     }
 }

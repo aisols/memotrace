@@ -16,11 +16,9 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import org.memotrace.capture.CaptureProfile
 import org.memotrace.recorder.R
 import org.memotrace.recorder.RecorderApplication
 import org.memotrace.recorder.capture.RecorderService
-import org.memotrace.recorder.storage.Availability
 import java.text.DateFormat
 import java.util.Date
 
@@ -30,16 +28,10 @@ open class MainActivity : Activity() {
     private lateinit var pause: Button
     private lateinit var status: TextView
     private lateinit var count: TextView
-    private lateinit var quarantined: TextView
     private lateinit var last: TextView
-    private lateinit var interval: TextView
-    private lateinit var cover: TextView
     private lateinit var notificationNotice: TextView
-    private lateinit var profile: Button
     private lateinit var viewLast: Button
-    private lateinit var folder: TextView
-    private lateinit var details: TextView
-    private lateinit var negotiated: TextView
+    private lateinit var diagnostics: Button
     private var dialog: AlertDialog? = null
     private var visible = false
     private val observer: () -> Unit = { render() }
@@ -110,23 +102,18 @@ open class MainActivity : Activity() {
                 )
             }
         }
-        profile = control(R.id.select_profile, R.string.select_profile, Color.rgb(21, 77, 54))
-        profile.setOnClickListener { selectProfile() }
         viewLast = control(R.id.view_last, R.string.view_last, Color.rgb(21, 77, 54))
         viewLast.setOnClickListener {
             app.refreshAvailability(lastOnly = true) {
                 if (visible && !FrameViewer.open(this, app.summary.last)) showMessage(R.string.viewer_unavailable)
             }
         }
+        diagnostics = control(R.id.open_diagnostics, R.string.open_diagnostics, Color.rgb(47, 62, 91))
+        diagnostics.setOnClickListener { startActivity(Intent(this, DiagnosticsActivity::class.java)) }
         status = label(R.id.record_status, 22f).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE }
         count = label(R.id.saved_count, 20f)
-        quarantined = label(R.id.quarantined_count, 18f)
         last = label(R.id.last_saved, 18f)
-        interval = label(R.id.capture_interval, 18f)
-        cover = label(R.id.cover_shadow, 18f)
-        negotiated = label(R.id.negotiated_size, 18f)
-        folder = label(R.id.session_folder, 18f)
-        details = label(R.id.last_file_details, 18f)
+        label(R.id.fixed_profile, 18f).setText(R.string.fixed_profile)
         label(View.NO_ID, 16f).setText(R.string.scope_note)
         notificationNotice = label(View.NO_ID, 16f).apply { setText(R.string.notification_permission_note) }
         setContentView(scroll)
@@ -214,87 +201,32 @@ open class MainActivity : Activity() {
         pause.isEnabled = app.sessionOpen
         notificationNotice.visibility =
             if (getSystemService(NotificationManager::class.java).areNotificationsEnabled()) View.GONE else View.VISIBLE
-        count.update(if (app.ready) getString(R.string.saved_count, app.summary.count) else getString(R.string.stats_unknown))
-        quarantined.visibility = if (app.summary.quarantinedCount > 0) View.VISIBLE else View.GONE
-        quarantined.update(getString(R.string.quarantined_count, app.summary.quarantinedCount))
+        count.update(
+            if (app.ready) {
+                getString(R.string.saved_count, app.summary.sessionCount, app.summary.count)
+            } else {
+                getString(R.string.stats_unknown)
+            },
+        )
         last.update(
             getString(
                 R.string.last_saved,
                 if (!app.ready) {
                     getString(R.string.stats_unknown)
                 } else {
-                    app.summary.lastSavedMs?.let { DateFormat.getDateTimeInstance().format(Date(it)) } ?: getString(R.string.never_saved)
+                    app.summary.lastSavedMs?.let {
+                        getString(
+                            R.string.last_saved_value,
+                            DateFormat.getDateTimeInstance().format(Date(it)),
+                            ((System.currentTimeMillis() - it).coerceAtLeast(0) / 1_000),
+                        )
+                    } ?: getString(R.string.never_saved)
                 },
             ),
         )
-        interval.update(getString(R.string.interval, app.intervalMs))
-        cover.update(app.coverText.ifEmpty { getString(R.string.cover_unknown) })
-        profile.isEnabled = app.ready && !app.sessionOpen
-        profile.update(getString(R.string.selected_profile, profileLabel(app.selectedProfile)))
-        negotiated.update(getString(R.string.negotiated_size, app.negotiatedSize.ifEmpty { getString(R.string.size_unknown) }))
-        folder.update(
-            getString(R.string.session_folder, app.sessionPath.ifEmpty { app.summary.last?.path ?: getString(R.string.never_saved) }),
-        )
         val saved = app.summary.last
-        details.update(
-            if (saved == null) {
-                getString(R.string.never_saved)
-            } else {
-                getString(
-                    R.string.last_file_details,
-                    saved.bytes?.toString() ?: getString(R.string.size_unknown),
-                    saved.width?.let { "$it x ${saved.height}" } ?: getString(R.string.size_unknown),
-                    getString(
-                        when (saved.availability) {
-                            Availability.AVAILABLE -> R.string.media_available
-                            Availability.MISSING -> R.string.media_missing
-                            Availability.CHANGED -> R.string.media_changed
-                            Availability.INACCESSIBLE -> R.string.media_inaccessible
-                            Availability.TRASHED -> R.string.media_trashed
-                            Availability.LEGACY_PRIVATE -> R.string.media_legacy
-                            Availability.CLEANUP_UNPROVEN -> R.string.media_cleanup_unproven
-                        },
-                    ),
-                    CaptureProfile.fromId(saved.profileId)?.let { profileLabel(it) } ?: getString(R.string.size_unknown),
-                )
-            },
-        )
         viewLast.isEnabled = app.ready && saved != null
-    }
-
-    private fun profileLabel(profile: CaptureProfile): String =
-        getString(
-            when (profile) {
-                CaptureProfile.REFERENCE -> R.string.profile_reference
-                CaptureProfile.COMPRESSION -> R.string.profile_compression
-                CaptureProfile.WIDE_90 -> R.string.profile_wide_90
-                CaptureProfile.WIDE_80 -> R.string.profile_wide_80
-                CaptureProfile.COMPACT_90 -> R.string.profile_compact_90
-                CaptureProfile.COMPACT_80 -> R.string.profile_compact_80
-            },
-        )
-
-    private fun selectProfile() {
-        if (!app.ready || app.sessionOpen) return
-        val ids =
-            listOf(
-                R.id.profile_reference,
-                R.id.profile_compression,
-                R.id.profile_wide_90,
-                R.id.profile_wide_80,
-                R.id.profile_compact_90,
-                R.id.profile_compact_80,
-            )
-        showChoices(
-            R.string.select_profile,
-            R.string.profile_explanation,
-            CaptureProfile.entries.mapIndexed { index, choice ->
-                Triple(ids[index], profileLabel(choice), {
-                    app.selectProfile(choice.id)
-                    Unit
-                })
-            },
-        )
+        diagnostics.isEnabled = app.ready
     }
 
     private fun showMessage(message: Int) = showChoices(R.string.app_name, message, emptyList())

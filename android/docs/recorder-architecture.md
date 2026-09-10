@@ -10,7 +10,9 @@ a prototype implementation, not an independent review or device certification.
 side effects; the production implementation binds rear CameraX `ImageCapture`
 and `ImageAnalysis` to the **service's** lifecycle, never the Activity's. Capture
 is explicitly JPEG, minimize-latency mode, with an immutable CaptureSession/profile
-snapshot per Start. Matching 4:3/16:9 aspect and closest-lower-then-higher resolution
+snapshot per Start. Ordinary UI starts are fixed to `v1-1920x1080-q90`; the six
+immutable profiles remain available only through the programmatic verification seam.
+Matching 4:3/16:9 aspect and closest-lower-then-higher resolution
 fallback are explicit; requested, negotiated and actual dimensions are separate.
 JPEG quality is applied by CameraX, without application rescale/re-encode.
 See the [six-profile matrix](../README.md) and [storage protocol](media-storage.md).
@@ -36,8 +38,12 @@ camera preemption and screen-off behavior remain required device experiments.
 
 - The scheduler's one slot spans pending-row creation, capture, checksum/fsync,
   MediaStore publication and SQLite commit. Busy ticks are discarded; no catch-up burst is stored.
-- A single application IO executor serializes recovery, commits and summaries.
+- A single application IO executor serializes recovery, commits and explicit summaries.
   The caller permits only one acquisition chain, not an unbounded task stream.
+- The same application IO executor serializes session, telemetry and attempt journal
+  writes with frame metadata. Sampling occurs at session start, at most about once
+  per 60 seconds, on bounded thermal callbacks, and at terminal drain. Sensor reads
+  are nullable and nonfatal; SQLite integrity failures stop recording.
 - ImageCapture uses a separate owned serial IO executor. Terminal callbacks cross
   a FIFO disk barrier before the service can finalize/abandon or release its slot.
 - CameraX analysis uses KEEP_ONLY_LATEST, requests approximately 640x480 (nearest
@@ -47,9 +53,11 @@ camera preemption and screen-off behavior remain required device experiments.
   carries the newest result to the main thread; it cannot build a main-queue
   analysis backlog. No analysis images are persisted.
 - Checksums stream through a 32 KiB buffer. Captured JPEGs go to a borrowed stream, not app
-  byte arrays. Count queries use the indexed SQLite state, not a growing rewritten
-  JSON/day manifest. Index summaries/startup consistency scans are O(archive size);
-  persistence backpressure also bounds their cost at acquisition time.
+  byte arrays. A successful commit returns one authoritative frame delta for global
+  and current-session counts and last-frame metadata; it does not run a full summary
+  query per frame. Explicit summaries use indexed SQLite state, not a growing rewritten
+  JSON/day manifest. Startup/reconciliation scans remain O(archive size) and do not
+  run on the normal successful acquisition path.
 
 The callback path is one-shot even if an adapter delivers twice. Pause immediately
 prevents new requests and closes the camera. Already delivered JPEG output may
@@ -94,6 +102,22 @@ after an abort; such an aborted request is never reported as a successful save.
 Regression tests hold a real executor writer across an early abort, rapid service
 restart and disposal, and assert that cleanup/session release waits for drain.
 
+Each normal capture atomically creates its durable request row and pending frame row
+before provider output preparation; a pre-transaction PREPARE failure gets a terminal
+attempt row when SQLite remains usable. Separate
+monotonic fields represent prepare completion, durable readiness immediately before
+CameraX invocation, CameraX terminal callback, CameraX writer/disk-lane drain, and
+final store/attempt commit. The readiness row is committed before main-thread
+invocation and does not mean CameraX accepted the request. A phase is nullable only
+when the attempt never reached it. Prepare failures, typed CameraX camera/file-IO
+failures, cleanup/quarantine outcomes, and final-store failures remain explicit.
+A drained SAVED result always follows FrameStore validation/publication even if
+attempt telemetry fails; the valid JPEG remains while the journal fault stops the
+service. A failed combined SAVED transaction leaves the attempt PENDING rather than
+claiming STORAGE_FAILURE: startup frame recovery globally resolves it to recovered
+SAVED or INTERRUPTED even if its session was already terminal. These are pipeline
+timestamps, never shutter timestamps.
+
 ## Motion And Cover
 
 Default motion evidence is mean absolute difference between corresponding luma
@@ -117,7 +141,7 @@ motion scores and sampled images are not archived.
 ## Historical V1 Protocol
 
 The following describes the shipped v1 archive, retained only for safe upgrade
-and legacy recovery. **New capture uses schema v2 and the MediaStore protocol in
+and legacy recovery. **New capture uses schema v4 and the MediaStore protocol in
 [Profiles And Media Storage](media-storage.md)**, not this private-file protocol.
 The v1-to-v2 transaction preserves existing rows, other tables and private JPEGs;
 legacy dimensions remain unknown and viewing is explicitly unavailable.
@@ -166,18 +190,34 @@ concurrent with a writer.
 
 ## Timestamp Semantics
 
-Request wall time (`request_wall_ms`) and scheduling time (`request_elapsed_ms`,
-elapsedRealtime) are distinct. Settings include a session UUID: do not compare
+Request wall time (`request_wall_ms`), effective scheduled due, and request time
+(`scheduled_due_elapsed_ms` / `request_elapsed_ms`, elapsedRealtime) are distinct.
+The policy emits due, request, and effective interval together, so an intentional
+adaptive 1000/2000 ms transition is not an overrun; delay is `max(0, request-due)`.
+Settings include a session UUID: do not compare
 monotonic values across boots/sessions as universal timestamps. Neither timestamp
 is claimed to be an exact shutter instant. `saved_wall_ms` is the finish-operation
 wall time, not capture time. V1 renamed-file recovery uses recovery time;
 v2 validated recovery preserves the already durable save time and sets recovered=1. A clock change
 does not change scheduling; last-save display follows the latest committed frame's
 insertion order, not the maximum wall clock (which could point at an older frame).
+Session duration, request gaps, overruns and pipeline latency use monotonic values.
+The serial IO lane durably records `camera_invoke_ready_elapsed_ms` before posting
+CameraX invocation. It means only that MemoTrace was ready to invoke CameraX, not
+that CameraX accepted or exposed the frame. Pipeline latency is request-to-final
+commit; successful-save latency is writer-drain-to-final-commit. Process-death
+recovery never compares next-process uptime: actual end and recovered attempt commit
+times remain null, while recovery detection has a separate wall-clock field.
+Battery and temperature samples retain raw Android/OEM facts; current, charge,
+energy and temperature are whole-device measurements, not MemoTrace-only usage.
+Private diagnostics retain those wall/monotonic facts. The exported report omits all
+absolute wall and boot-relative values and converts session, sample, due, request,
+phase, drain, and commit timing to offsets from that session's monotonic start.
 
 ## Persisted Intent And UI
 
-Small SharedPreferences commits persist profile ID, explicit public-Pictures consent,
+Small SharedPreferences commits persist the fixed-profile UX revision/profile ID,
+explicit public-Pictures consent,
 requested recording plus a stable error
 code, not resource IDs. A new process seeing requested=true displays interrupted
 and waits for another visible Start; it never claims the camera is running merely
@@ -202,10 +242,12 @@ large Russian text and high contrast. System bars/cutouts have explicit insets;
 wrap-content controls and a fallback ScrollView avoid large-font clipping. No
 activity screen-on flag, lock task mode, custom hardware keys or keyguard bypass.
 
-The additional profile/consent dialogs use native TremorButtons and a ScrollView;
-profile changes are disabled from accepted Start reservation through post-Pause persistence drain and rechecked
-in the application. The last-JPEG viewer grants only read access to one content
-URI, handling missing/inaccessible/legacy files and missing viewer applications.
+The consent dialog uses native TremorButtons and a ScrollView. The normal main flow
+has no profile mutation control. The last-image action opens an explicit nonexported
+Activity with no URI grant or ClipData. It accepts only an AVAILABLE indexed
+`content://media/.../images/media/<id>` JPEG, verifies provider MIME, and decodes
+with ImageDecoder on its own worker. Platform orientation handling, bounded sampling
+and FIT_CENTER avoid a second capture copy and avoid cropping.
 Public files may be backed up independently by Gallery/Photos/OneDrive; the UI no
 longer promises that images stay only on the phone.
 
@@ -228,6 +270,20 @@ They do not block new sessions or get retried/deleted automatically. Genuine DB,
 provider and current-write failures remain fatal, as does invalid validated data;
 provider rename-before-SQL-update can otherwise leave a linked JPEG orphan.
 See media-storage.md for conservative recovery limits and native residue reporting.
+
+The nonexported diagnostics Activity reads only one current/latest session from
+private metadata. It never performs Gallery reconciliation or opens images. It loads
+once on entry and does no periodic full attempt reload while OPEN; the OPEN-to-closed
+transition triggers an immediate full refresh. Report export is disabled until Pause
+completes the outstanding frame, final sample and terminal transaction. An
+application-wide reservation then disables Start from before report acquisition
+through picker cancellation/failure or confirmed output close. SAF
+`ACTION_CREATE_DOCUMENT` writes a deterministic four-entry ZIP with report-local
+ordinals and session-relative timing offsets on a separate export executor. Absolute
+wall/boot timestamps and persistent/media identifiers are omitted. Activity
+destruction during an active provider write does not release the reservation early;
+stream completion/close does. Stream-close success is required before the UI reports
+completion.
 
 The failed A33 gallery run exposed retained-descriptor fstat ENOENT, not a reliable
 POSIX unlink signal on that FUSE implementation. UnlinkStatus is now tri-state;

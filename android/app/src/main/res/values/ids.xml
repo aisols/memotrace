@@ -14,6 +14,16 @@
     <item type="id" name="session_folder" />
     <item type="id" name="last_file_details" />
     <item type="id" name="view_last" />
+    <item type="id" name="open_diagnostics" />
+    <item type="id" name="fixed_profile" />
+    <item type="id" name="diagnostics_scroll" />
+    <item type="id" name="diagnostics_details" />
+    <item type="id" name="export_report" />
+    <item type="id" name="export_status" />
+    <item type="id" name="diagnostics_close" />
+    <item type="id" name="viewer_status" />
+    <item type="id" name="viewer_image" />
+    <item type="id" name="viewer_close" />
     <item type="id" name="profile_reference" />
     <item type="id" name="profile_compression" />
     <item type="id" name="profile_wide_90" />

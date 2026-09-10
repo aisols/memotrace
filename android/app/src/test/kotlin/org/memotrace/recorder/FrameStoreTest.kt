@@ -503,7 +503,7 @@ class FrameStoreTest {
             assertArrayEquals(jpeg, File(root, "$id.jpg").readBytes())
             assertTrue(media.items.isEmpty())
             SQLiteDatabase.openDatabase(File(root, "index.sqlite").path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
-                assertEquals(2, db.version)
+                assertEquals(4, db.version)
                 db.rawQuery("SELECT token FROM sync_fixture", null).use {
                     assertTrue(it.moveToFirst())
                     assertEquals("preserved", it.getString(0))

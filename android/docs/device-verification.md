@@ -1,5 +1,12 @@
 # Recorder Device Verification
 
+The [2026-09-10 long-run record](long-run-verification-2026-09-10.md) contains
+MAIN's current-revision artifact identity, guarded 10/10 connected pass, retained
+cleanup uncertainty, 3:14 normal-app smoke, ADB-off interval, viewer, and SAF export
+observations. It is not a two-hour, sustained-screen-off, body-worn, power-loss,
+restore, controlled benchmark, residue-free, or hosted-CI result. The implementation
+owner did not perform that device work.
+
 The [2026-09-09 profile evidence](profiles-verification-2026-09-09.md) records
 MAIN's subsequent 10/10 native passes at `ceef24e` and `6445bad`, post-host retention,
 manual UI/new-photo checks and unresolved cleanup uncertainty. This is dated
@@ -21,24 +28,27 @@ Robolectric tests as hardware evidence. Reference: SM-A336B, Android 16/API 36.
 ## Identity And Build Outputs
 
 - Application ID: `org.memotrace.recorder`
-- Profile/public-storage build: versionCode `2`, versionName `0.2.0`.
+- Long-run recorder build: versionCode `3`, versionName `0.3.0`.
 - Launcher: `org.memotrace.recorder.ui.MainActivity`
 - Service: `org.memotrace.recorder.capture.RecorderService` (nonexported)
 - App APK: `app/build/outputs/apk/debug/app-debug.apk`
 - Test APK: `app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk`
 - Runner: `org.memotrace.recorder.test/org.memotrace.recorder.IsolatedTestRunner`
 - Resource prefix: `org.memotrace.recorder:id/`
-- IDs: `start_recording`, `pause_recording`, `record_status`, `saved_count`,
-  `last_saved`, `capture_interval`, `cover_shadow`, `recorder_scroll`.
-- New IDs: `select_profile`, `negotiated_size`, `session_folder`, `last_file_details`,
-  `view_last`, `profile_reference`, `profile_compression`, `profile_wide_90`,
-  `profile_wide_80`, `profile_compact_90`, `profile_compact_80`, `consent_accept`,
-  `dialog_cancel`, `dialog_scroll`.
+- Main IDs in accessibility order: `start_recording`, `pause_recording`, `view_last`,
+  `open_diagnostics`; status IDs are `record_status`, `saved_count`, `last_saved`,
+  `fixed_profile`, and `recorder_scroll`.
+- Diagnostics/viewer IDs: `diagnostics_details`, `export_report`, `export_status`,
+  `diagnostics_close`, `viewer_status`, `viewer_image`, and `viewer_close`.
+- `select_profile` and the six profile choice IDs are not in the normal UI. The
+  immutable six-profile camera device test still uses `selectProfile` in-process.
 - `quarantined_count`: separate old-unvalidated/cleanup-unproven diagnostic count;
   excluded from saved/available image totals and not a global Start blocker.
 
 Do not add debug exports or direct start-recording intent arguments for automation.
 Starting the launcher does not grant recording consent. Tap the real Start control.
+The normal Start profile must be `v1-1920x1080-q90`, including after upgrading an
+installation that persisted a different Q80 or Q95 profile.
 
 ## Local And Instrumented Gates
 
@@ -107,8 +117,9 @@ ledger retention, real trash/restore availability, and insert-before-first-open
 Application recovery. The latter requires readiness with zero saved frames and
 either proven removal or a retained quarantine tombstone on eager/lazy providers;
 it never creates a file to make recovery pass and preserves its isolated ledger/index.
-MAIN's dated executions are linked above; compilation and the AOSP source audit
-alone do not establish Samsung provider behavior. The six-profile test records
+MAIN's dated current and historical executions are linked above; compilation and
+the AOSP source audit alone do not establish Samsung provider behavior. The
+six-profile test records
 requested Q/size, negotiated stream,
 actual bounds and bytes under log tag `MemoTraceTest`; Q is a configured request,
 not proof of a firmware encoder's internal quantization. Record failures, including camera/permission
@@ -117,7 +128,7 @@ The camera test activates the real Start/Pause controls using accessibility
 ACTION_CLICK and asserts native Button nodes and visible, non-hidden ancestors.
 Do not run `pm clear`, uninstall the recorder, or remove its archive to reset tests.
 
-### First Device Attempt
+### Historical First Device Attempt
 
 Main-agent report: the first real `connectedDebugAndroidTest` run passed the
 storage test but failed the two UI/capture tests with `NoActivityResumed` and an
@@ -163,8 +174,8 @@ with resolution, navigation and font size; do not hardcode them in the applicati
    Repeat at the largest system font/display size and in a small/landscape window:
    controls must remain fully readable/reachable through the fallback scroll, with
    TalkBack click semantics. Status changes must not shift the buttons' content positions.
-   Profile and second Start must also be blocked immediately after accepted Start,
-   before service delivery. Returning during recording must not trigger a full
+    A second Start must also be blocked immediately after accepted Start, before
+    service delivery. Returning during recording must not trigger a full
    history sweep; after Pause/drain it may show archive checking before enabling Start.
    Verify delayed Pause from an older UI/notification cannot cancel the next
    session; rejected older starts must not tear down a newer queued service start.
@@ -172,7 +183,7 @@ with resolution, navigation and font size; do not hardcode them in the applicati
    separate quarantine diagnostic. Starting a new session must not count that old
    uncertain record as a successful image or automatically retry its cleanup.
    After a saved frame followed by Pause abort with only unlink uncertainty,
-   require PAUSED, ready=true and a usable next profile Start. ERROR_FILE_IO or
+    require PAUSED, ready=true and a usable next Start. ERROR_FILE_IO or
    database/provider errors must still fail. Wait diagnostics now include ready,
    sessionOpen, canStart, status and saved/quarantine counts; deadlines are unchanged.
 6. Start again, return Home/use another app, and turn the screen off for at least
@@ -191,7 +202,7 @@ with resolution, navigation and font size; do not hardcode them in the applicati
 The private index and any retained v1 archive use `run-as org.memotrace.recorder`
 relative path `no_backup/recorder/`. MAIN's old 660 JPEGs/v1 index were explicitly
 deleted at the user's request before new testing; the dated profile record describes
-18 new ordinary JPEGs, not that archive. New original URIs and paths are in schema v2;
+18 new ordinary JPEGs, not that archive. New original URIs and paths migrate forward into schema v4;
 new images live publicly in Pictures/MemoTrace, not beside the index. See
 [MediaStore protocol](media-storage.md).
 Inspect it only while paused and drained. Debug `run-as` is normal debug APK
@@ -203,6 +214,8 @@ Use `frames.request_elapsed_ms` for observed request cadence within a session,
 recovery-time commits. `saved_wall_ms` is not shutter time. Verify SHA-256 against
 the corresponding original and inspect actual decode/quality. Do not infer exact
 shutter timing from request scheduling or instantaneous UI count.
+These private on-device/database facts are not copied verbatim into the SAF report;
+the ZIP uses offsets from session start and omits absolute wall/boot timestamps.
 
 Low-space destructive filling belongs on an isolated emulator/test volume, not
 the user's phone. Unit tests inject the exact 128 MiB boundary and below; native
@@ -236,3 +249,13 @@ legibility nor lower total battery use. Do not claim a best profile without resu
 After a separately authorized deletion/edit of a dedicated public test fixture,
 return to MemoTrace and verify missing/changed status, historical count retention,
 and ability to start another session. Do not delete ordinary archive images.
+
+## Unplugged Two-Hour Run
+
+Follow the [operator checklist](two-hour-recorder-checklist.md) without ADB, a
+debugger, external power, or a network dependency. The current implementation and
+MAIN's [3:14 smoke](long-run-verification-2026-09-10.md) do not establish that
+endurance result. Record exact APK
+identity, external start/end times, interruptions, the on-device terminal state and
+the successfully closed report artifact as new dated main-agent evidence; never
+rewrite the historical profile evidence as if it covered this revision.

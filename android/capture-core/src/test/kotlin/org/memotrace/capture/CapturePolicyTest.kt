@@ -54,13 +54,18 @@ class CapturePolicyTest {
         assertTrue(p.start())
         assertFalse(p.start())
         val first = p.request(0)!!
-        assertTrue(p.complete(first, true))
+        assertEquals(0L, first.scheduledDueElapsedMs)
+        assertEquals(0L, first.requestElapsedMs)
+        assertEquals(2_000L, first.intervalMs)
+        assertTrue(p.complete(first.token, true))
         assertNull(p.request(1_999))
         val second = p.request(2_000)!!
-        assertTrue(second > first)
-        p.complete(second, true)
+        assertTrue(second.token > first.token)
+        assertEquals(2_000L, second.scheduledDueElapsedMs)
+        p.complete(second.token, true)
         val third = p.request(1_000_000)!!
-        p.complete(third, true)
+        assertEquals(4_000L, third.scheduledDueElapsedMs)
+        p.complete(third.token, true)
         assertNull(p.request(1_000_000))
         assertNull(p.request(1_001_999))
         assertNotNull(p.request(1_002_000))
@@ -73,9 +78,9 @@ class CapturePolicyTest {
         repeat(100_000) { assertNull(p.request(it.toLong())) }
         p.pause()
         assertFalse(p.start())
-        assertFalse(p.complete(token + 1, true))
+        assertFalse(p.complete(token.token + 1, true))
         assertFalse(p.start())
-        assertFalse(p.complete(token, true))
+        assertFalse(p.complete(token.token, true))
         assertEquals(CapturePolicy.State.PAUSED, p.state)
         assertTrue(p.start())
         assertNotNull(p.request(100_000))
@@ -111,24 +116,64 @@ class CapturePolicyTest {
         val first = p.request(0)!!
         p.motion(255.0, 100)
         assertNull(p.request(750))
-        p.complete(first, true)
+        p.complete(first.token, true)
         assertNull(p.request(749))
-        assertNotNull(p.request(750))
+        val second = p.request(750)!!
+        assertEquals(750L, second.scheduledDueElapsedMs)
+        assertEquals(750L, second.intervalMs)
+    }
+
+    @Test fun adaptiveTransitionsExposeEffectiveDueWithoutFalseMisses() {
+        val p = CapturePolicy()
+        p.start()
+        p.request(0)!!.also { p.complete(it.token, true) }
+
+        p.motion(255.0, 100)
+        assertNull(p.request(999))
+        p.request(1_000)!!.also {
+            assertEquals(1_000L, it.scheduledDueElapsedMs)
+            assertEquals(1_000L, it.intervalMs)
+            p.complete(it.token, true)
+        }
+
+        p.motion(0.0, 1_100)
+        for (now in listOf(2_000L, 3_000L, 4_000L)) {
+            p.request(now)!!.also {
+                assertEquals(now, it.scheduledDueElapsedMs)
+                assertEquals(1_000L, it.intervalMs)
+                p.complete(it.token, true)
+            }
+        }
+        p.motion(0.0, 4_100)
+        assertFalse(p.moving)
+        assertNull(p.request(5_999))
+        p.request(6_000)!!.also {
+            assertEquals(6_000L, it.scheduledDueElapsedMs)
+            assertEquals(2_000L, it.intervalMs)
+            p.complete(it.token, true)
+        }
+        p.request(9_000)!!.also {
+            assertEquals(8_000L, it.scheduledDueElapsedMs)
+            assertEquals(9_000L, it.requestElapsedMs)
+            assertEquals(2_000L, it.intervalMs)
+            assertEquals(1_000L, it.requestElapsedMs - it.scheduledDueElapsedMs)
+            p.complete(it.token, true)
+        }
     }
 
     @Test fun failedAndDuplicateCompletionCannotRestart() {
         val p = CapturePolicy()
         p.start()
         val token = p.request(10)!!
-        assertFalse(p.complete(token, false))
+        assertFalse(p.complete(token.token, false))
         assertEquals(CapturePolicy.State.ERROR, p.state)
         assertNull(p.request(100_000))
-        assertFalse(p.complete(token, true))
+        assertFalse(p.complete(token.token, true))
         assertTrue(p.start())
         val newer = p.request(100_001)!!
-        assertFalse(p.complete(token, false))
+        assertFalse(p.complete(token.token, false))
         assertEquals(CapturePolicy.State.RECORDING, p.state)
-        assertTrue(p.complete(newer, true))
+        assertTrue(p.complete(newer.token, true))
     }
 
     @Test fun timeoutBoundaryAndLateCompletion() {
@@ -139,7 +184,7 @@ class CapturePolicyTest {
         assertTrue(p.timedOut(30_010))
         p.fail()
         assertFalse(p.start())
-        assertFalse(p.complete(token, true))
+        assertFalse(p.complete(token.token, true))
         assertEquals(CapturePolicy.State.ERROR, p.state)
         assertFalse(p.timedOut(100_000))
         assertTrue(p.start())
@@ -151,7 +196,7 @@ class CapturePolicyTest {
         p.motion(100.0, 0)
         val token = p.request(0)!!
         p.pause()
-        assertFalse(p.complete(token, false))
+        assertFalse(p.complete(token.token, false))
         assertEquals(CapturePolicy.State.PAUSED, p.state)
         p.start()
         assertFalse(p.moving)
@@ -184,8 +229,8 @@ class CapturePolicyTest {
             val d = dark.request(time)
             assertEquals(l, d)
             assertEquals(light.intervalMs, dark.intervalMs)
-            if (l != null) light.complete(l, true)
-            if (d != null) dark.complete(d, true)
+            if (l != null) light.complete(l.token, true)
+            if (d != null) dark.complete(d.token, true)
         }
     }
 }
