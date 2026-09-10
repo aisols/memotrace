@@ -2,8 +2,10 @@
 
 MAIN-observed evidence supplied for this documentation-only record, not device
 verification by the documentation builder or implementation owner. It covers the
-current uncommitted long-run revision identified by the artifact hashes below. It
-does not replace the historical
+application implementation committed in `108a374`, identified by the artifact
+hashes below. MAIN's device tests occurred immediately before that commit on exactly
+those application sources; subsequent changes to this record are documentation only.
+It does not replace the historical
 [2026-09-09 profile evidence](profiles-verification-2026-09-09.md).
 Device: Samsung SM-A336B, Android 16/API 36, build `BP2A.250605.031.A3`.
 
@@ -24,7 +26,8 @@ this revision.
 
 ## Connected Run
 
-The first current-revision connected attempt was environment-blocked: the screen
+The first connected attempt for the `108a374` application sources was
+environment-blocked: the screen
 was off and keyguard was showing, and three UI/camera tests failed after seven other
 tests completed. This is neither an application failure diagnosis nor a native pass.
 

@@ -3,7 +3,7 @@
 Buildable, offline adaptive JPEG recorder prototype for **Android 16 / API 36
 and later**. API 36 is the only current test target; older Android versions are
 deliberately not advertised by this first slice. MAIN's bounded observations for
-the current uncommitted long-run revision are in the
+long-run implementation commit `108a374` are in the
 [2026-09-10 long-run evidence](docs/long-run-verification-2026-09-10.md). The
 [2026-09-09 profile evidence](docs/profiles-verification-2026-09-09.md), including
 final `6445bad` results, and [v1 evidence](docs/verification-2026-09-09.md) remain

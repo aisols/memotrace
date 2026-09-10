@@ -1,7 +1,8 @@
 # Recorder Device Verification
 
 The [2026-09-10 long-run record](long-run-verification-2026-09-10.md) contains
-MAIN's current-revision artifact identity, guarded 10/10 connected pass, retained
+MAIN's artifact identity for implementation commit `108a374`, guarded 10/10
+connected pass, retained
 cleanup uncertainty, 3:14 normal-app smoke, ADB-off interval, viewer, and SAF export
 observations. It is not a two-hour, sustained-screen-off, body-worn, power-loss,
 restore, controlled benchmark, residue-free, or hosted-CI result. The implementation

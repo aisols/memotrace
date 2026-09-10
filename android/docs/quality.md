@@ -28,7 +28,7 @@ branches (99.34%), above the unchanged 90%/80% gates. Lint reported no issues;
 Spotless, debug APK assembly, and debug instrumentation APK assembly passed. No
 connected/device test or two-hour run was performed by the implementation owner.
 
-Separate [MAIN-observed evidence for the current uncommitted revision](long-run-verification-2026-09-10.md)
+Separate [MAIN-observed evidence for implementation commit `108a374`](long-run-verification-2026-09-10.md)
 records artifact hashes, an unlocked guarded 10/10 connected pass after an
 environment-blocked attempt, unresolved native cleanup, and a 3:14 normal-app smoke
 with viewer and SAF export checks. It does not establish the two-hour, sustained
@@ -37,8 +37,10 @@ hosted-CI gates. Do not attribute those device actions to the implementation own
 
 ## Dated Device Evidence
 
-The 2026-09-10 record above is the current working-revision device evidence; artifact
-hashes, rather than an invented commit ID, identify that uncommitted revision.
+The 2026-09-10 record above covers application implementation commit `108a374`.
+Device tests occurred immediately before the commit on exactly those application
+sources; artifact hashes identify the tested APKs, and subsequent changes are
+documentation only.
 
 [MAIN's 2026-09-09 profile record](profiles-verification-2026-09-09.md) covers code
 `6445bad`: clean command passed 101 tasks; 23 core + 82 app = 105 tests, zero
@@ -485,9 +487,10 @@ with remaining limitations; its hosted rerun was pending at that snapshot.
 For the historical profile revision, [PR #3](https://github.com/aisols/memotrace/pull/3)
 is authoritative. [MAIN's dated profile record](profiles-verification-2026-09-09.md)
 records `6445bad` with [CI run 34378499995 passed](https://github.com/aisols/memotrace/actions/runs/34378499995),
-not a guarantee for future HEADs. The current uncommitted long-run revision is
+not a guarantee for future HEADs. Long-run implementation commit `108a374` is
 identified separately in the [2026-09-10 evidence](long-run-verification-2026-09-10.md);
-hosted CI has not run for it. Latest-revision CI and unresolved required checks remain
+artifact hashes identify its tested APKs, and hosted CI has not run for it.
+Latest-revision CI and unresolved required checks remain
 merge gates. Cross-component verification is not applicable to this Android-only revision.
 The Gradle action v5.0.0 reference is the peeled official commit
 `4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2`, resolved using
