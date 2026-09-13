@@ -1,4 +1,4 @@
-name: Ingestion Contracts and Server
+name: Ingestion Contracts, Server, and ML
 
 on:
   pull_request:
@@ -31,7 +31,8 @@ jobs:
       - uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
         with:
           version: '0.11.3'
-          working-directory: contracts
+          # Shared tool install; each check below selects its own component/project.
+          working-directory: .
           enable-cache: false
       - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
@@ -48,10 +49,22 @@ jobs:
           python3 scripts/refresh-contract.py --check --source ../contracts
           --source-base 5f5ac49e03b25f805f5a89f791727d0c3bd18642
           --provenance unreleased-revision
-      - name: Server Build, Race Tests, PostgreSQL, and Domain Coverage
+      - name: ML Unit Tests, Spatial Coverage, Strict Types, Lint, and Format
         working-directory: server
+        # Installs locked CPU dependencies; tests require no model or dataset downloads.
+        run: uv run --locked --project ml python -m memotrace_ml.verify
+      - name: External Retrieval Smoke Helper Tests, Lint, and Format
+        working-directory: server
+        # Kept outside the autonomous ml/ package because this helper orchestrates Go/Docker/TLS.
+        run: |
+          uv run --locked --project ml ruff check --config ml/pyproject.toml scripts/retrieval-smoke.py scripts/test_retrieval_smoke.py
+          uv run --locked --project ml ruff format --check --config ml/pyproject.toml scripts/retrieval-smoke.py scripts/test_retrieval_smoke.py
+          uv run --locked --project ml pytest -c ml/pyproject.toml scripts/test_retrieval_smoke.py
+      - name: Server Build, Race Tests, PostgreSQL, Decoder Interop, and Domain Coverage
+        working-directory: server
+        # Use the installed ML environment for genuine, model-free decoder/pixel tests.
         # The component provisions/cleans its own uniquely named PostgreSQL container.
-        run: bash scripts/verify.sh
+        run: MEMOTRACE_TEST_ML_PYTHON="$PWD/ml/.venv/bin/python" bash scripts/verify.sh
       - name: Server Component Docker Build
         working-directory: server
         run: docker build -t memotrace-server:local .

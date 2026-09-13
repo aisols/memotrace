@@ -24,8 +24,10 @@ import (
 
 const MaxInput = 24 * 1024 * 1024
 const MaxOutput = 2 * 1024 * 1024
+const shutdownTimeout = 2 * time.Second
 
 var ErrWorker = errors.New("inference unavailable")
+var errInput = errors.New("inference input unavailable")
 
 type Worker struct {
 	argv    []string
@@ -97,7 +99,7 @@ func (w *Worker) start() error {
 	}
 	c := exec.Command(w.argv[0], w.argv[1:]...)
 	c.Env = environment(home)
-	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pdeathsig: syscall.SIGKILL}
 	c.Stderr = &cappedLog{}
 	c.WaitDelay = 2 * time.Second
 	in, err := c.StdinPipe()
@@ -122,13 +124,32 @@ func (w *Worker) start() error {
 	w.out = bufio.NewReaderSize(out, MaxOutput+1)
 	return nil
 }
-func (w *Worker) stop() {
-	if w.cmd == nil {
-		return
+
+func processGroupAlive(pid int) bool {
+	err := syscall.Kill(-pid, 0)
+	return err == nil || errors.Is(err, syscall.EPERM)
+}
+
+func awaitProcessGroup(pid int, done <-chan struct{}, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for {
+		finished := false
+		select {
+		case <-done:
+			finished = true
+		default:
+		}
+		if finished && !processGroupAlive(pid) {
+			return true
+		}
+		if !time.Now().Before(deadline) {
+			return false
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
-	_ = syscall.Kill(-w.cmd.Process.Pid, syscall.SIGKILL)
-	_ = w.in.Close()
-	_ = w.cmd.Wait()
+}
+
+func (w *Worker) clear() {
 	for _, s := range w.cmd.Env {
 		if len(s) > 5 && s[:5] == "HOME=" {
 			_ = os.RemoveAll(s[5:])
@@ -138,12 +159,40 @@ func (w *Worker) stop() {
 	w.in = nil
 	w.out = nil
 }
+
+func (w *Worker) stop() {
+	if w.cmd == nil {
+		return
+	}
+	_ = syscall.Kill(-w.cmd.Process.Pid, syscall.SIGKILL)
+	_ = w.in.Close()
+	_ = w.cmd.Wait()
+	w.clear()
+}
 func (w *Worker) Close() error {
 	w.gate <- struct{}{}
 	defer func() { <-w.gate }()
 	w.closed = true
-	w.stop()
-	return nil
+	if w.cmd == nil {
+		return nil
+	}
+	pid := w.cmd.Process.Pid
+	_ = syscall.Kill(-pid, syscall.SIGTERM)
+	_ = w.in.Close()
+	cmd := w.cmd
+	done := make(chan struct{})
+	go func() {
+		_ = cmd.Wait()
+		close(done)
+	}()
+	if awaitProcessGroup(pid, done, shutdownTimeout) {
+		w.clear()
+		return nil
+	}
+	_ = syscall.Kill(-pid, syscall.SIGKILL)
+	_ = awaitProcessGroup(pid, done, shutdownTimeout)
+	w.clear()
+	return ErrWorker
 }
 
 func (w *Worker) call(ctx context.Context, request map[string]any, dst any) error {
@@ -206,9 +255,13 @@ func (w *Worker) call(ctx context.Context, request map[string]any, dst any) erro
 	}
 	v, err := strictjson.Value(got.b)
 	m, ok := v.(map[string]any)
-	if err == nil && ok && m["id"] == id && m["ok"] == false && len(m) == 3 && m["error"] == "invalid_request" {
-		w.stop()
-		return protocol.E("invalid_request")
+	if err == nil && ok && m["id"] == id && m["ok"] == false && len(m) == 3 {
+		switch m["error"] {
+		case "invalid_request":
+			return protocol.E("invalid_request")
+		case "input_failed":
+			return errInput
+		}
 	}
 	if err != nil || !ok || m["id"] != id || m["ok"] != true {
 		w.stop()

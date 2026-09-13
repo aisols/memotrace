@@ -85,10 +85,14 @@ func run(args []string) error {
 		if err != nil {
 			return err
 		}
+		err = serveWithWorker(os.Getenv("MEMOTRACE_DSN"), *root, *listen, *cert, *key, w)
 		if w != nil {
-			defer w.Close()
+			closeErr := w.Close()
+			if err == nil {
+				err = closeErr
+			}
 		}
-		return serveWithWorker(os.Getenv("MEMOTRACE_DSN"), *root, *listen, *cert, *key, w)
+		return err
 	case "dataset-import", "index", "search", "history":
 		return retrievalCommand(args[0], *archiveID, *root, *manifest, *mode, *maxJobs, *request, *workerArgv, *workerTimeout, output)
 	case "create-archive", "invite", "revoke-device":

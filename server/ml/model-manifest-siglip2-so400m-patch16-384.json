@@ -1,0 +1,18 @@
+{
+  "version": "1",
+  "model_id": "google/siglip2-so400m-patch16-384",
+  "revision": "dd658faac399427308559e2c3ac1e99cbe43845d",
+  "license": "Apache-2.0",
+  "license_source": "https://huggingface.co/google/siglip2-so400m-patch16-384/blob/dd658faac399427308559e2c3ac1e99cbe43845d/README.md",
+  "parameter_count": 1136039602,
+  "files": {
+    "README.md": {"sha256": "f4e6a7d735e3bca77e75979cd72a4024db8659a431e0e3e805647bc9feae41e1", "byte_length": 3381},
+    "config.json": {"sha256": "5f09151a317b37430e2c12358b94a4b698e9e72ee332986f04ac7df7e29de931", "byte_length": 537},
+    "model.safetensors": {"sha256": "422750e06216f053d85d4176fb6a9d4c5e71ded2d1b7c7e0e6c2efd909a1e427", "byte_length": 4544267488},
+    "preprocessor_config.json": {"sha256": "fb2817d3523ca3b666c859f15320c7138416bc38ffc515e2963f78c868c51c90", "byte_length": 394},
+    "special_tokens_map.json": {"sha256": "baec30ea10906f16adb8c18af7a34023002c1746542612b8b41c9f09e1351351", "byte_length": 636},
+    "tokenizer.json": {"sha256": "cb9140fae3ac5122c972d37adf83e1248471a38147ad76f8215c8872c6fd8322", "byte_length": 34363039},
+    "tokenizer.model": {"sha256": "61a7b147390c64585d6c3543dd6fc636906c9af3865a5548f27f31aee1d4c8e2", "byte_length": 4241003},
+    "tokenizer_config.json": {"sha256": "14afe629fe4959b9e0d51e1852b8d9f7ad074f90a1a7125a4fcdd17f06e78fc8", "byte_length": 47164}
+  }
+}

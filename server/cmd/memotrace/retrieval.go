@@ -41,7 +41,7 @@ func retrievalCommand(command, archiveID, root, manifest, mode string, maxJobs i
 	var postOutputErr error
 	// Keep signal cancellation through work and cleanup, but release it and all
 	// operation resources before writing to caller-owned, potentially blocking output.
-	err := func() error {
+	err := func() (err error) {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		ctx, cancel := context.WithTimeout(ctx, 24*time.Hour)
@@ -74,7 +74,11 @@ func retrievalCommand(command, archiveID, root, manifest, mode string, maxJobs i
 			return err
 		}
 		if w != nil {
-			defer w.Close()
+			defer func() {
+				if closeErr := w.Close(); err == nil {
+					err = closeErr
+				}
+			}()
 		}
 		var worker search.Worker
 		if w != nil {

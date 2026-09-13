@@ -1,0 +1,90 @@
+[project]
+name = "memotrace-ml"
+version = "0.1.0"
+description = "Offline CPU inference and explicit public-data retrieval experiments"
+requires-python = ">=3.12,<3.13"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
+dependencies = [
+  "numpy==2.2.6",
+  "pillow==11.3.0",
+  "safetensors==0.6.2",
+  "threadpoolctl==3.6.0",
+  "torch==2.8.0+cpu",
+  "transformers==4.56.2",
+]
+
+[dependency-groups]
+dev = [
+  "coverage==7.10.6",
+  "hatchling==1.27.0",
+  "mypy==1.18.2",
+  "pytest==8.4.2",
+  "ruff==0.13.1",
+]
+
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+required-version = "==0.11.3"
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["memotrace_ml"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/LICENSE",
+  "/README.md",
+  "/pyproject.toml",
+  "/uv.lock",
+  "/model-manifest*.json",
+  "/memotrace_ml",
+  "/tests",
+]
+
+[tool.hatch.build.targets.wheel.force-include]
+"model-manifest.json" = "memotrace_ml/model-manifest.json"
+"model-manifest-siglip2-base-patch16-384.json" = "memotrace_ml/model-manifest-siglip2-base-patch16-384.json"
+"model-manifest-siglip2-so400m-patch16-384.json" = "memotrace_ml/model-manifest-siglip2-so400m-patch16-384.json"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["memotrace_ml", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["transformers", "transformers.*", "threadpoolctl"]
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["memotrace_ml.images"]
+data_file = ".coverage"
+
+[tool.coverage.report]
+show_missing = true
+precision = 2
+
+[tool.coverage.json]
+output = ".coverage-images.json"
