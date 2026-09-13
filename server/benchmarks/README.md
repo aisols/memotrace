@@ -275,3 +275,8 @@ Ego4D score claim. Future sampling must record source FPS/time base and actual
 frame PTS, including any resampling, and apply the query cutoff before ranking.
 Frame number divided by a guessed FPS is not evidence. Open Images provides no
 temporal/cutoff or first/last-observed evidence for this deferred work.
+
+The [generic blind/staged evaluator](../docs/retrieval-evaluation.md) now supplies only
+model-free planning, ranking, and post-ranking metric primitives for a future licensed
+runner. It contains no dataset parser or private fixture and does not change any access,
+official-metric, tracking, or timestamp limitation above.

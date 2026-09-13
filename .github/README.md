@@ -35,7 +35,13 @@ Commands run in order:
    ```
 
 3. From `server/`: `uv run --locked --project ml python -m memotrace_ml.verify`.
-4. From `server/`, the external smoke helper gate:
+4. From `server/`, the external generic blind/staged evaluator gate:
+
+   ```sh
+   uv run --locked --project ml python scripts/verify_retrieval_eval.py
+   ```
+
+5. From `server/`, the external smoke helper gate:
 
    ```sh
    uv run --locked --project ml ruff check --config ml/pyproject.toml scripts/retrieval-smoke.py scripts/test_retrieval_smoke.py
@@ -43,9 +49,9 @@ Commands run in order:
    uv run --locked --project ml pytest -c ml/pyproject.toml scripts/test_retrieval_smoke.py
    ```
 
-5. From `server/`:
+6. From `server/`:
    `MEMOTRACE_TEST_ML_PYTHON="$PWD/ml/.venv/bin/python" bash scripts/verify.sh`.
-6. From `server/`: `docker build -t memotrace-server:local .`.
+7. From `server/`: `docker build -t memotrace-server:local .`.
 
 The server verifier owns formatting checks (no gofmt mutation), module verification,
 vet, build, snapshot conformance, required PostgreSQL/race/fault tests and the
@@ -63,6 +69,13 @@ tests that prohibit network connections. It enforces the independently approved
 reported separately without a branch threshold. Dependency installation can download
 locked wheels, including **CPU-only Torch**; ordinary CI acquires **no model
 weights or datasets**.
+
+The [generic retrieval evaluator](../server/docs/retrieval-evaluation.md) is an external,
+model-free diagnostic under `server/scripts`, not part of the packaged ML implementation
+fingerprint or Go Docker image. Its gate uses only inline neutral synthetic cases, runs
+strict typing and Ruff, and enforces **100% statement coverage separately** for the pure
+planning/ranking core and post-ranking metrics module. Branch coverage is reported with
+no threshold. It reads no model, dataset, private input, or network resource.
 
 ML installation/verification precedes the Go verifier so the coordinated job can
 supply its actual locked interpreter through `MEMOTRACE_TEST_ML_PYTHON`. This makes

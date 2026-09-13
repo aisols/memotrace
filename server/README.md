@@ -16,6 +16,7 @@ Run from this directory; builds/tests need no sibling sources or parent configur
 go build -trimpath -o /tmp/memotrace ./cmd/memotrace
 go test ./...                 # unit/schema checks; PostgreSQL tests explicitly skip
 bash scripts/verify.sh       # required full verification, including PostgreSQL
+uv run --locked --project ml python scripts/verify_retrieval_eval.py
 docker build -t memotrace-server:local .
 ```
 
@@ -26,6 +27,9 @@ existing container/database. The locally inspected PostgreSQL-15 image is pinned
 `postgres@sha256:74e110c41804365e3915fcc09d5e7a1eff50161aaa94d5da0e58e0cd75ae509c`.
 No host psql, pgvector, private fixtures or cloud credentials are needed.
 See [quality gates](docs/quality.md).
+The [generic blind/staged evaluator](docs/retrieval-evaluation.md) is a separate,
+model-free offline diagnostic under `scripts/`, outside the packaged ML fingerprint and
+Go-only image. Its synthetic verifier neither needs nor establishes access to video data.
 
 The [2026-09-10 main verification record](docs/retrieval-main-verification-2026-09-10.md)
 is historical pre-hardening evidence for required component gates and genuine Base384

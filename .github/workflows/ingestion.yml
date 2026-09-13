@@ -53,6 +53,10 @@ jobs:
         working-directory: server
         # Installs locked CPU dependencies; tests require no model or dataset downloads.
         run: uv run --locked --project ml python -m memotrace_ml.verify
+      - name: Generic Blind Retrieval Evaluator Tests, Coverage, Types, Lint, and Format
+        working-directory: server
+        # External diagnostic tooling; synthetic and model/data/network-free.
+        run: uv run --locked --project ml python scripts/verify_retrieval_eval.py
       - name: External Retrieval Smoke Helper Tests, Lint, and Format
         working-directory: server
         # Kept outside the autonomous ml/ package because this helper orchestrates Go/Docker/TLS.

@@ -105,6 +105,35 @@ and concurrent-upload receipts. Registration checks also compare full persisted
 metadata to the test's input. Error checks assert exact expected `error.code` and
 retryability; ambiguous 409/422 statuses require an explicit expected code.
 
+## External retrieval evaluator gate
+
+The generic blind/staged [retrieval evaluator](retrieval-evaluation.md) is offline
+diagnostic tooling in `scripts/`, outside packaged ML and the Go-only image. From
+`server/`, run:
+
+```sh
+uv run --locked --project ml python scripts/verify_retrieval_eval.py
+```
+
+The verifier uses the dependencies already pinned by `ml/uv.lock`. It runs Ruff
+check/format, strict mypy, and inline neutral synthetic pytest cases under branch
+coverage. Coverage data/JSON use a unique private temporary directory that is cleaned on
+success or failure; the verifier runtime-validates exact source membership and exact
+non-bool nonnegative counters after rereading JSON. It fails on malformed coverage,
+missing files, or empty test discovery. The independently enforced gate is **100%
+reachable statement coverage for each of `scripts/retrieval_eval_core.py` and
+`scripts/retrieval_eval_metrics.py`**; neither file can offset the other. Branch coverage
+is reported separately without a threshold. This gate downloads no model or data and
+does not establish media PTS, tracking, licensed-data access, official dataset metrics,
+or production behavior. The evaluator's documented practical caps bound vectors,
+galleries, candidates, annotations, and metric outputs before materialization. Full and
+overlap phases also cap exact requested scalar vector elements before any dot product;
+shared galleries are finite-validated once per collection rather than once per query.
+Post-ranking capture/distance uses a deterministic linear sweep bounded by accepted
+aggregate candidates plus intervals, not their Cartesian product. These are complexity
+bounds and validation semantics, not measured runtime speedup claims. Sensitive
+evaluator, annotation, and result dataclasses use redacted default representations.
+
 ## Pure/domain coverage gates
 
 Require **>=85% statement coverage of `internal/protocol`**, separately from HTTP,
