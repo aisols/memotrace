@@ -59,8 +59,8 @@ consumer builds/tests must use a **consumer-local pinned copy**, never
 generation. Server owns its snapshot creation/refresh and provenance manifest.
 
 1. Select the canonical source tree deliberately. Run the complete contract
-   quality command at that tree. Record the checked source revision and whether
-   the files include unreleased/uncommitted working-tree changes.
+   quality command at that tree. Record the checked source revision, whether it
+   contains the exact bytes, and whether those bytes have been released.
 2. Copy these wire artifacts **byte-for-byte**, preserving their relative layout:
    `VERSION`, `openapi/ingestion.json`, `schemas/ingestion.schema.json`,
    `openapi/retrieval.json`, `schemas/retrieval.schema.json`. Keep the
@@ -69,16 +69,15 @@ generation. Server owns its snapshot creation/refresh and provenance manifest.
    tooling or distributed as documentation; hash every copied file.
 3. Compute SHA-256 over each source file's raw bytes, then verify the destination
    bytes match. The consumer's manifest records `bundle_version`, `wire_versions`, source
-   repository identity, source revision, explicit working-tree status, refresh
+   repository identity, source revision, explicit source status, refresh
    provenance, and a relative-path-to-SHA-256 map. No timestamps or fake revision
    strings may substitute for content integrity.
-4. For **this retrieval working-tree snapshot**, record base source revision
-   **`0ebc2a87752e533f1fa50fd138b15b68546b4fcc`**, explicitly labeled
-   **unreleased working-tree bundle 0.2.0, ingestion 0.1.0/retrieval 0.2.0**,
-   plus the actual file content hashes. This base revision does not contain the
-   new definitions and must not be represented as their final source commit.
-   On later reviewed refresh, replace it with the actual source commit/release
-   provenance and new verified hashes. Do not fabricate a final revision now.
+4. For **this retrieval snapshot**, record source revision
+   **`5f5ac49e03b25f805f5a89f791727d0c3bd18642`** with canonical source status
+   **`committed`**. That commit contains the exact bundle 0.2.0 bytes, including
+   ingestion 0.1.0/retrieval 0.2.0, but no bundle 0.2.0 release has been published.
+   Consumer provenance must therefore distinguish this committed, unreleased
+   revision from both working-tree bytes and an actual released revision.
 5. Mark copies generated/read-only in consumer documentation. Fix issues here
    and refresh explicitly; never independently edit the snapshot. Consumer
    build/test checks must reject changed bytes against its manifest.
@@ -99,18 +98,18 @@ does not copy files or modify a consumer manifest):
 ```sh
 uv run --locked python -m tools.snapshot \
   --source-repository https://github.com/aisols/memotrace.git \
-  --source-revision 0ebc2a87752e533f1fa50fd138b15b68546b4fcc \
-  --source-status unreleased-working-tree
+  --source-revision 5f5ac49e03b25f805f5a89f791727d0c3bd18642 \
+  --source-status committed
 ```
 
 The output records `bundle_version: "0.2.0"`,
-`wire_versions: {"ingestion":"0.1.0","retrieval":"0.2.0"}`, full base revision,
-explicit source status and raw SHA-256 of all five artifacts. It validates both
-pairs before producing hashes, but is not a substitute for the full test command.
+`wire_versions: {"ingestion":"0.1.0","retrieval":"0.2.0"}`, full source revision,
+explicit committed source status and raw SHA-256 of all five artifacts. It
+validates both pairs before producing hashes, but is not a substitute for the full test command.
 It never determines/claims a clean Git tree or writes another component.
-Only use `committed` after verifying that the recorded commit actually contains
-the exact source bytes. For existing consumer manifest fields named
-`contract_version`/`source_version`, document whether they mean bundle or wire
+`committed` is correct here because the recorded commit contains the exact source
+bytes; it does not mean a release exists. For existing consumer manifest fields
+named `contract_version`/`source_version`, document whether they mean bundle or wire
 family; add explicit family versions rather than deriving ingestion requirements
 from bundle `VERSION`. Previously pinned ingestion-only 0.1.0 snapshots remain
 valid historical pins until an explicitly reviewed consumer refresh.

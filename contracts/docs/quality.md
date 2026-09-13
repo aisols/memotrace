@@ -75,7 +75,8 @@ uv run --locked --offline python -m tools.verify
    IDs. Preserve the original 977 ingestion tests and exact schema/OpenAPI SHA-256
    (`9dcc7ab98a2d77357c3a00e966590e282525962fa33c2aeb58c1b12ccdecb783` /
    `eafc37a24fddd70c6afd6c6ed1290f60ad62c691f650ba8af365cfbd9156b37b`).
-   The read-only snapshot manifest covers VERSION and both document pairs.
+   The read-only snapshot manifest covers VERSION and both document pairs; its
+   positive provenance regression records the exact committed source revision.
 10. **Retrieval boundaries**: strict text/image union, query limits and required
     history threshold; finite score/coordinate bounds; scalar text/NUL policy;
     timeline and cutoff dependency; source/nullability and empty unknown history;

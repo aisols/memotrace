@@ -14,9 +14,10 @@ from tools.contract import BUNDLE_VERSION, Contract, FAMILIES, ROOT
 def manifest(source_repository, source_revision, source_status, root=ROOT):
     """Hash the complete wire bundle after validating its family identities.
 
-    A working-tree revision identifies its base, not a commit containing new files.
-    Consumer-owned refresh tools may translate these fields, but must preserve
-    their meaning and verify byte parity. No Git or network operations occur here.
+    An unreleased working-tree revision identifies its base; a committed revision
+    identifies the commit containing the exact files. Consumer-owned refresh tools
+    may translate these fields, but must preserve their meaning and verify byte
+    parity. No Git or network operations occur here.
     """
     if not source_repository or not re.fullmatch(r"[0-9a-f]{40}", source_revision):
         raise ValueError("Repository identity and full lower-case source revision required")

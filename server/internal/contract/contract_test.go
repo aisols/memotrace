@@ -15,11 +15,46 @@ func TestCanonicalSnapshotHashesAndDefinitions(t *testing.T) {
 			t.Fatalf("%s: %v", def, err)
 		}
 	}
+	for _, def := range []string{"SearchRequest", "HistoryRequest", "SearchResponse", "HistoryResponse", "Hit", "Coverage", "Observation", "Box", "Timeline"} {
+		if _, err := Compile(def); err != nil {
+			t.Fatalf("retrieval %s: %v", def, err)
+		}
+	}
+	for _, family := range []string{"ingestion", "retrieval"} {
+		s, err := CompileFamily(family, "ContractVersion")
+		if err != nil {
+			t.Fatal(err)
+		}
+		version := "0.1.0"
+		if family == "retrieval" {
+			version = "0.2.0"
+		}
+		if err = s.Validate(version); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := Validate("Health", []byte(`{"status":"ok","contract_version":"0.1.0","unexpected":true}`)); err == nil {
 		t.Fatal("schema validator did not enforce additionalProperties")
 	}
 	if err := Validate("UTCDateTime", []byte(`"2026-02-30T00:00:00Z"`)); err == nil {
 		t.Fatal("format checking disabled")
+	}
+}
+
+func TestSnapshotProvenanceStatuses(t *testing.T) {
+	for _, tc := range []struct {
+		status string
+		valid  bool
+	}{
+		{"unreleased-working-tree", true},
+		{"unreleased-revision", true},
+		{"released-revision", true},
+		{"committed", false},
+		{"", false},
+	} {
+		if got := validSnapshotProvenance(tc.status); got != tc.valid {
+			t.Errorf("validSnapshotProvenance(%q) = %t, want %t", tc.status, got, tc.valid)
+		}
 	}
 }
 

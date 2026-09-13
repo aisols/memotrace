@@ -1,11 +1,17 @@
 {
-  "contract_version": "0.1.0",
+  "contract_version": "0.2.0",
+  "wire_versions": {
+    "ingestion": "0.1.0",
+    "retrieval": "0.2.0"
+  },
   "source_component": "contracts",
-  "source_base_revision": "f4e53f8",
-  "provenance": "unreleased-working-tree",
+  "source_base_revision": "5f5ac49e03b25f805f5a89f791727d0c3bd18642",
+  "provenance": "unreleased-revision",
   "files": {
     "schemas/ingestion.schema.json": "9dcc7ab98a2d77357c3a00e966590e282525962fa33c2aeb58c1b12ccdecb783",
     "openapi/ingestion.json": "eafc37a24fddd70c6afd6c6ed1290f60ad62c691f650ba8af365cfbd9156b37b",
-    "VERSION": "e9dd8507f4bf0c6f42458e41aea833ad0bd3f6127272335eee9bf4d58541ed67"
+    "schemas/retrieval.schema.json": "4a9eaa241ba725d1cc62500c71015190ce1989a3b110d367002a28c0ec285062",
+    "openapi/retrieval.json": "57cfadb46121c5771a7c45bb6d0c1d7447cb6f43a69e43ed5b20c2fc863149da",
+    "VERSION": "1f930dd1f133c1f97a94fe3acb8db34372cf4c01ffdb2b3ff4ca72f9494121e9"
   }
 }

@@ -231,16 +231,18 @@ class RetrievalTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             Contract(family="private-ipc")
 
-    def test_provenance_hashes_both_pairs_without_relabeling_ingestion(self):
-        result = manifest("synthetic:memotrace", "0ebc2a87752e533f1fa50fd138b15b68546b4fcc", "unreleased-working-tree")
+    def test_committed_provenance_hashes_both_pairs_without_relabeling_ingestion(self):
+        revision = "5f5ac49e03b25f805f5a89f791727d0c3bd18642"
+        result = manifest("synthetic:memotrace", revision, "committed")
         self.assertEqual(result["bundle_version"], "0.2.0")
         self.assertEqual(result["wire_versions"], {"ingestion": "0.1.0", "retrieval": "0.2.0"})
-        self.assertEqual(result["source_status"], "unreleased-working-tree")
+        self.assertEqual(result["source_revision"], revision)
+        self.assertEqual(result["source_status"], "committed")
         self.assertNotIn("contract_version", result)
         self.assertEqual(set(result["files"]), {"VERSION", "schemas/ingestion.schema.json", "openapi/ingestion.json", "schemas/retrieval.schema.json", "openapi/retrieval.json"})
         for path, digest in result["files"].items():
             self.assertEqual(digest, sha256((ROOT / path).read_bytes()).hexdigest())
-        for revision, status in (("0ebc2a8", "unreleased-working-tree"), ("g" * 40, "committed"), ("0" * 40, "unknown")):
+        for revision, status in (("5f5ac49", "unreleased-working-tree"), ("g" * 40, "committed"), ("0" * 40, "unknown")):
             with self.subTest(revision=revision, status=status), self.assertRaises(ValueError):
                 manifest("synthetic:memotrace", revision, status)
 

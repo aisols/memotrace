@@ -4,15 +4,21 @@
 import sys
 from pathlib import Path
 
-covered = total = 0
+gates = {"protocol": [0, 0], "retrieval": [0, 0]}
 for line in Path(sys.argv[1]).read_text().splitlines()[1:]:
     block, statements, hits = line.split()
-    if block.startswith("memotrace/server/internal/protocol/"):
-        total += int(statements)
-        covered += int(statements) if int(hits) else 0
-if not total:
-    raise SystemExit("pure/domain coverage missing")
-percent = 100 * covered / total
-print(f"pure protocol/domain statement coverage: {percent:.1f}% ({covered}/{total}); required >=85%")
-if percent < 85:
-    raise SystemExit("pure protocol/domain coverage gate failed")
+    for package, counters in gates.items():
+        if block.startswith(f"memotrace/server/internal/{package}/"):
+            counters[1] += int(statements)
+            counters[0] += int(statements) if int(hits) else 0
+failed = []
+for package, (covered, total) in gates.items():
+    if not total:
+        failed.append(f"pure {package}/domain coverage missing")
+        continue
+    percent = 100 * covered / total
+    print(f"pure {package}/domain statement coverage: {percent:.1f}% ({covered}/{total}); required >=85%")
+    if 100 * covered < 85 * total:
+        failed.append(f"pure {package}/domain coverage gate failed")
+if failed:
+    raise SystemExit("; ".join(failed))

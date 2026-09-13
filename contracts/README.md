@@ -1,7 +1,7 @@
 # MemoTrace Contracts
 
 Autonomous, language-neutral source of truth for the public protocol and persisted
-exchange formats. **Bundle `0.2.0` is an unreleased development contract bundle**,
+exchange formats. **Bundle `0.2.0` is a committed but unreleased contract bundle**,
 with OpenAPI 3.1, JSON Schema 2020-12, and executable validation. It contains
 **ingestion wire `0.1.0`** (unchanged bytes) and **retrieval wire `0.2.0`**.
 There is no published release or supported client/server combination yet. Schema

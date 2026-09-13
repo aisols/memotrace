@@ -46,7 +46,8 @@ jobs:
         # through review; ordinary server builds/tests use only their local snapshot.
         run: >-
           python3 scripts/refresh-contract.py --check --source ../contracts
-          --source-base f4e53f8 --provenance unreleased-working-tree
+          --source-base 5f5ac49e03b25f805f5a89f791727d0c3bd18642
+          --provenance unreleased-revision
       - name: Server Build, Race Tests, PostgreSQL, and Domain Coverage
         working-directory: server
         # The component provisions/cleans its own uniquely named PostgreSQL container.

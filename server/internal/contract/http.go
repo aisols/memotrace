@@ -11,8 +11,13 @@ import (
 
 // CheckResponse checks a real handler exchange against the snapshot's OpenAPI
 // routing/status/media/schema and error-code definitions, rather than Go types.
-func CheckResponse(method, path string, status int, headers http.Header, body []byte) error {
-	b, err := files.ReadFile("snapshot/openapi/ingestion.json")
+func CheckResponse(method, path string, status int, headers http.Header, body []byte, requestBody ...[]byte) error {
+	family := "ingestion"
+	parts := strings.Split(path, "/")
+	if len(parts) >= 5 && (parts[4] == "search" || parts[4] == "history") {
+		family = "retrieval"
+	}
+	b, err := files.ReadFile("snapshot/openapi/" + family + ".json")
 	if err != nil {
 		return err
 	}
@@ -21,7 +26,16 @@ func CheckResponse(method, path string, status int, headers http.Header, body []
 		return err
 	}
 	object := func(v any) map[string]any { m, _ := v.(map[string]any); return m }
+	var ingestion map[string]any
+	legacy, err := files.ReadFile("snapshot/openapi/ingestion.json")
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(legacy, &ingestion); err != nil {
+		return err
+	}
 	var operation map[string]any
+	pathMatched := false
 	for template, item := range object(api["paths"]) {
 		want, got := strings.Split(template, "/"), strings.Split(path, "/")
 		if len(want) != len(got) {
@@ -34,6 +48,7 @@ func CheckResponse(method, path string, status int, headers http.Header, body []
 			}
 		}
 		if match {
+			pathMatched = true
 			operation = object(object(item)[strings.ToLower(method)])
 			break
 		}
@@ -42,8 +57,12 @@ func CheckResponse(method, path string, status int, headers http.Header, body []
 		return fmt.Errorf("missing privacy headers")
 	}
 	if operation == nil {
-		if status != 404 && status != 405 {
-			return fmt.Errorf("undefined OpenAPI operation returned %d", status)
+		expected := http.StatusNotFound
+		if pathMatched {
+			expected = http.StatusMethodNotAllowed
+		}
+		if status != expected {
+			return fmt.Errorf("undefined OpenAPI operation returned %d, want %d", status, expected)
 		}
 		return Validate("Error", body)
 	}
@@ -57,7 +76,12 @@ func CheckResponse(method, path string, status int, headers http.Header, body []
 	for name, definition := range object(response["headers"]) {
 		header := object(definition)
 		if ref, ok := header["$ref"].(string); ok {
-			header = object(object(object(api["components"])["headers"])[strings.TrimPrefix(ref, "#/components/headers/")])
+			doc := api
+			if strings.HasPrefix(ref, "ingestion.json#") {
+				doc = ingestion
+				ref = strings.TrimPrefix(ref, "ingestion.json")
+			}
+			header = object(object(object(doc["components"])["headers"])[strings.TrimPrefix(ref, "#/components/headers/")])
 		}
 		values := headers.Values(name)
 		if len(values) == 0 {
@@ -77,7 +101,7 @@ func CheckResponse(method, path string, status int, headers http.Header, body []
 			}
 			value = n
 		}
-		schema, err := CompileHeader(header["schema"])
+		schema, err := compileHeaderFamily(family, header["schema"])
 		if err != nil {
 			return err
 		}
@@ -111,6 +135,9 @@ func CheckResponse(method, path string, status int, headers http.Header, body []
 	}
 	if ref, ok := object(content["schema"])["$ref"].(string); ok {
 		_, def, _ := strings.Cut(ref, "#/$defs/")
+		if len(requestBody) == 1 && (def == "SearchResponse" || def == "HistoryResponse") {
+			return ValidateWithRequest(def, body, requestBody[0])
+		}
 		return Validate(def, body)
 	}
 	if media == "image/jpeg" {

@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memotrace.example/contracts/0.2.0/retrieval.schema.json",
+  "title": "MemoTrace retrieval 0.2.0 development contract",
+  "description": "Canonical public retrieval definitions; select a named $defs entry. Offline identity, not a hosted artifact. Normative cross-field and ranking requirements are in docs/retrieval.md; geometry requires semantic validation.",
+  "$comment": "SPDX-License-Identifier: AGPL-3.0-only",
+  "$defs": {
+    "ContractVersion": {"type": "string", "const": "0.2.0"},
+    "UUID": {"$ref": "https://memotrace.example/contracts/0.1.0/ingestion.schema.json#/$defs/UUID"},
+    "SHA256": {"$ref": "https://memotrace.example/contracts/0.1.0/ingestion.schema.json#/$defs/SHA256"},
+    "Milliseconds": {"$ref": "https://memotrace.example/contracts/0.1.0/ingestion.schema.json#/$defs/Milliseconds"},
+    "Count": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "Score": {"type": "number", "minimum": -1, "maximum": 1, "description": "Finite cosine similarity, not probability or identity confidence. JSON NaN/Infinity are invalid."},
+    "Coordinate": {"type": "number", "minimum": 0, "maximum": 1, "description": "Finite normalized source-image coordinate."},
+    "Box": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {"$ref": "#/$defs/Coordinate"},
+      "description": "[x0,y0,x1,y1] in normalized source-image coordinates. MUST satisfy 0 <= x0 < x1 <= 1 and 0 <= y0 < y1 <= 1. JSON Schema cannot compare array elements: producers/consumers MUST additionally enforce these inequalities (see docs/retrieval.md). Coarse crop coverage, not an instance detection box."
+    },
+    "Label": {"type": "string", "minLength": 1, "maxLength": 512, "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$", "description": "Opaque Unicode scalar text; no NUL, trimming, normalization, or surrogate repair."},
+    "SequenceID": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$", "description": "Opaque sequence identity within the archive; scalar text, no NUL."},
+    "TextQuery": {
+      "type": "object", "additionalProperties": false, "required": ["text"],
+      "properties": {"text": {"type": "string", "minLength": 1, "maxLength": 2048, "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$"}}
+    },
+    "ImageQuery": {
+      "type": "object", "additionalProperties": false, "required": ["asset_id"],
+      "properties": {"asset_id": {"$ref": "#/$defs/UUID"}, "box": {"$ref": "#/$defs/Box"}},
+      "description": "Authorized existing asset, optionally a selected region. Exclude the source asset and every derived region/candidate before ranking. No filesystem path or external image URL."
+    },
+    "Query": {"oneOf": [{"$ref": "#/$defs/TextQuery"}, {"$ref": "#/$defs/ImageQuery"}]},
+    "WallTimeline": {
+      "type": "object", "additionalProperties": false, "required": ["kind"],
+      "properties": {"kind": {"const": "wall"}}
+    },
+    "SequenceTimeline": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "sequence_id"],
+      "properties": {"kind": {"const": "sequence"}, "sequence_id": {"$ref": "#/$defs/SequenceID"}}
+    },
+    "Timeline": {
+      "oneOf": [{"type": "null"}, {"$ref": "#/$defs/WallTimeline"}, {"$ref": "#/$defs/SequenceTimeline"}],
+      "description": "Explicit clock selection. Null means no chronological claim. Never merge wall time with sequence position or different sequence IDs."
+    },
+    "SearchRequest": {
+      "type": "object", "additionalProperties": false, "required": ["generation_id", "query"],
+      "properties": {
+        "generation_id": {"$ref": "#/$defs/SHA256"},
+        "query": {"$ref": "#/$defs/Query"},
+        "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20},
+        "min_score": {"$ref": "#/$defs/Score", "default": -1},
+        "timeline": {"$ref": "#/$defs/Timeline", "default": null},
+        "before_ms": {"anyOf": [{"$ref": "#/$defs/Milliseconds"}, {"type": "null"}], "description": "Exclusive cutoff in the explicitly selected timeline; absent/null disables cutoff. A non-null cutoff requires a non-null timeline."}
+      },
+      "allOf": [{"if": {"required": ["before_ms"], "properties": {"before_ms": {"not": {"type": "null"}}}}, "then": {"required": ["timeline"], "properties": {"timeline": {"not": {"type": "null"}}}}}]
+    },
+    "HistoryRequest": {
+      "type": "object", "additionalProperties": false, "required": ["generation_id", "query", "min_score"],
+      "properties": {
+        "generation_id": {"$ref": "#/$defs/SHA256"},
+        "query": {"$ref": "#/$defs/Query"},
+        "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20},
+        "min_score": {"$ref": "#/$defs/Score"},
+        "timeline": {"$ref": "#/$defs/Timeline", "default": null},
+        "before_ms": {"anyOf": [{"$ref": "#/$defs/Milliseconds"}, {"type": "null"}], "description": "Exclusive cutoff; a non-null value requires a non-null timeline. Absent/null disables cutoff."},
+        "gap_ms": {"type": "integer", "minimum": 0, "maximum": 3600000, "default": 30000}
+      },
+      "allOf": [{"if": {"required": ["before_ms"], "properties": {"before_ms": {"not": {"type": "null"}}}}, "then": {"required": ["timeline"], "properties": {"timeline": {"not": {"type": "null"}}}}}]
+    },
+    "Dataset": {
+      "type": "object", "additionalProperties": false, "required": ["name", "version", "item_id"],
+      "properties": {"name": {"$ref": "#/$defs/Label"}, "version": {"$ref": "#/$defs/Label"}, "item_id": {"$ref": "#/$defs/Label"}},
+      "description": "Provenance identifiers only, never model input or textual relevance ground truth. No source_uri, annotation, local path, or dataset manifest on this public wire."
+    },
+    "Region": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "box"],
+      "properties": {"kind": {"enum": ["full", "crop"]}, "box": {"$ref": "#/$defs/Box"}},
+      "allOf": [{"if": {"properties": {"kind": {"const": "full"}}, "required": ["kind"]}, "then": {"properties": {"box": {"const": [0, 0, 1, 1]}}}}]
+    },
+    "OriginalPath": {
+      "type": "string", "minLength": 109, "maxLength": 109,
+      "pattern": "^/v1/archives/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/search/assets/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/original$",
+      "description": "Origin-relative API path on the authenticated server, not a filesystem path. UUIDs MUST equal the response archive_id and hit asset_id. No scheme, authority, query, fragment, encoding, traversal, or trailing slash."
+    },
+    "Hit": {
+      "type": "object", "additionalProperties": false,
+      "required": ["asset_id", "source_kind", "frame_id", "dataset", "sha256", "score", "region", "observed_at_ms", "sequence_id", "sequence_position_ms", "original_path"],
+      "properties": {
+        "asset_id": {"$ref": "#/$defs/UUID"},
+        "source_kind": {"enum": ["frame", "dataset"]},
+        "frame_id": {"anyOf": [{"$ref": "#/$defs/UUID"}, {"type": "null"}]},
+        "dataset": {"anyOf": [{"$ref": "#/$defs/Dataset"}, {"type": "null"}]},
+        "sha256": {"$ref": "#/$defs/SHA256"},
+        "score": {"$ref": "#/$defs/Score"},
+        "region": {"$ref": "#/$defs/Region"},
+        "observed_at_ms": {"anyOf": [{"$ref": "#/$defs/Milliseconds"}, {"type": "null"}]},
+        "sequence_id": {"anyOf": [{"$ref": "#/$defs/SequenceID"}, {"type": "null"}]},
+        "sequence_position_ms": {"anyOf": [{"$ref": "#/$defs/Milliseconds"}, {"type": "null"}]},
+        "original_path": {"$ref": "#/$defs/OriginalPath"}
+      },
+      "allOf": [
+        {"if": {"properties": {"source_kind": {"const": "frame"}}, "required": ["source_kind"]}, "then": {"properties": {"frame_id": {"$ref": "#/$defs/UUID"}, "dataset": {"type": "null"}}}, "else": {"properties": {"frame_id": {"type": "null"}, "dataset": {"$ref": "#/$defs/Dataset"}}}},
+        {"if": {"properties": {"sequence_id": {"type": "null"}}, "required": ["sequence_id"]}, "then": {"properties": {"sequence_position_ms": {"type": "null"}}}, "else": {"properties": {"sequence_position_ms": {"$ref": "#/$defs/Milliseconds"}}}}
+      ]
+    },
+    "Coverage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["assets_total", "assets_indexed", "pending", "failed", "regions_indexed"],
+      "properties": {
+        "assets_total": {"$ref": "#/$defs/Count"}, "assets_indexed": {"$ref": "#/$defs/Count"},
+        "pending": {"$ref": "#/$defs/Count"}, "failed": {"$ref": "#/$defs/Count"}, "regions_indexed": {"$ref": "#/$defs/Count"}
+      },
+      "description": "Authorized archive/generation snapshot before query filtering. assets_total = assets_indexed + pending + failed. pending includes unattempted/in-flight/retry work. Complete indexing hint iff pending=failed=0 and indexed=total; not detection completeness, physical presence, or acquisition evidence. At least one region per indexed asset. Semantic sums require runtime checks."
+    },
+    "SearchResponse": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contract_version", "archive_id", "generation_id", "coverage", "hits", "truncated"],
+      "properties": {
+        "contract_version": {"$ref": "#/$defs/ContractVersion"}, "archive_id": {"$ref": "#/$defs/UUID"}, "generation_id": {"$ref": "#/$defs/SHA256"},
+        "coverage": {"$ref": "#/$defs/Coverage"}, "hits": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/Hit"}}, "truncated": {"type": "boolean"}
+      }
+    },
+    "Observation": {
+      "type": "object", "additionalProperties": false, "required": ["start_ms", "end_ms", "max_score", "evidence"],
+      "properties": {
+        "start_ms": {"$ref": "#/$defs/Milliseconds"}, "end_ms": {"$ref": "#/$defs/Milliseconds"}, "max_score": {"$ref": "#/$defs/Score"},
+        "evidence": {"type": "array", "minItems": 1, "maxItems": 100, "items": {"$ref": "#/$defs/Hit"}}
+      },
+      "description": "Candidate group in the one selected clock; start_ms <= end_ms. Boundaries/max_score cover the complete qualifying group even when evidence is limited. Not object identity, tracking, or an acquisition guarantee."
+    },
+    "HistoryResponse": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contract_version", "archive_id", "generation_id", "coverage", "timeline", "history_available", "observations", "unsequenced_hits", "first_observed_ms", "last_observed_ms", "truncated", "interpretation"],
+      "properties": {
+        "contract_version": {"$ref": "#/$defs/ContractVersion"}, "archive_id": {"$ref": "#/$defs/UUID"}, "generation_id": {"$ref": "#/$defs/SHA256"}, "coverage": {"$ref": "#/$defs/Coverage"},
+        "timeline": {"$ref": "#/$defs/Timeline"}, "history_available": {"type": "boolean"},
+        "observations": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/Observation"}},
+        "unsequenced_hits": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/Hit"}},
+        "first_observed_ms": {"anyOf": [{"$ref": "#/$defs/Milliseconds"}, {"type": "null"}]},
+        "last_observed_ms": {"anyOf": [{"$ref": "#/$defs/Milliseconds"}, {"type": "null"}]},
+        "truncated": {"type": "boolean"}, "interpretation": {"const": "candidate_observations"}
+      },
+      "allOf": [
+        {"if": {"properties": {"timeline": {"type": "null"}}, "required": ["timeline"]}, "then": {"properties": {"history_available": {"const": false}}}},
+        {"if": {"properties": {"history_available": {"const": false}}, "required": ["history_available"]}, "then": {"properties": {"observations": {"maxItems": 0}, "first_observed_ms": {"type": "null"}, "last_observed_ms": {"type": "null"}}}, "else": {"properties": {"timeline": {"not": {"type": "null"}}, "first_observed_ms": {"$ref": "#/$defs/Milliseconds"}, "last_observed_ms": {"$ref": "#/$defs/Milliseconds"}}}},
+        {"if": {"required": ["history_available", "truncated"], "properties": {"history_available": {"const": true}, "truncated": {"const": false}}}, "then": {"properties": {"observations": {"minItems": 1}}}}
+      ]
+    }
+  }
+}

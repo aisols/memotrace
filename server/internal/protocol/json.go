@@ -130,3 +130,7 @@ func integral(n json.Number) (json.Number, error) {
 	}
 	return json.Number(digits), nil
 }
+
+// IntegralNumber preserves JSON Schema mathematical integer semantics for typed
+// integer fields without coercing the retrieval family's floating-point fields.
+func IntegralNumber(n json.Number) (json.Number, error) { return integral(n) }

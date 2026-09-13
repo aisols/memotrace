@@ -7,24 +7,36 @@ Copy canonical contract bytes with deterministic, reviewable provenance/hashes.
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--source", type=Path, required=True)
 parser.add_argument("--source-base", required=True)
-parser.add_argument("--provenance", choices=["unreleased-working-tree", "released-revision"], required=True)
+parser.add_argument(
+    "--provenance",
+    choices=["unreleased-working-tree", "unreleased-revision", "released-revision"],
+    required=True,
+)
 parser.add_argument("--check", action="store_true", help="compare explicit canonical source and provenance without changing the snapshot")
 args = parser.parse_args()
-files = ["schemas/ingestion.schema.json", "openapi/ingestion.json", "VERSION"]
+if not re.fullmatch(r"[0-9a-f]{40}", args.source_base):
+    raise SystemExit("full lower-case 40-hex source base revision required")
+files = ["schemas/ingestion.schema.json", "openapi/ingestion.json", "schemas/retrieval.schema.json", "openapi/retrieval.json", "VERSION"]
 contents = {name: (args.source / name).read_bytes() for name in files}
-schema = json.loads(contents[files[0]])
-api = json.loads(contents[files[1]])
-version = schema["$defs"]["ContractVersion"]["const"]
-if api["info"]["version"] != version or contents["VERSION"] != (version + "\n").encode("ascii"):
-    raise SystemExit("contract version mismatch")
+version = "0.2.0"
+wire_versions = {"ingestion": "0.1.0", "retrieval": "0.2.0"}
+for family, wire_version in wire_versions.items():
+    schema = json.loads(contents[f"schemas/{family}.schema.json"])
+    api = json.loads(contents[f"openapi/{family}.json"])
+    if schema["$defs"]["ContractVersion"]["const"] != wire_version or api["info"]["version"] != wire_version:
+        raise SystemExit(f"{family} wire version mismatch")
+if contents["VERSION"] != (version + "\n").encode("ascii"):
+    raise SystemExit("bundle version mismatch")
 destination = Path(__file__).resolve().parents[1] / "internal/contract/snapshot"
 manifest = {
     "contract_version": version,
+    "wire_versions": wire_versions,
     "source_component": "contracts",
     "source_base_revision": args.source_base,
     "provenance": args.provenance,

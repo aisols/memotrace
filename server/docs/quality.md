@@ -87,7 +87,7 @@ and concurrent-upload receipts. Registration checks also compare full persisted
 metadata to the test's input. Error checks assert exact expected `error.code` and
 retryability; ambiguous 409/422 statuses require an explicit expected code.
 
-## Pure/domain coverage gate
+## Pure/domain coverage gates
 
 Require **>=85% statement coverage of `internal/protocol`**, separately from HTTP,
 CLI, SQL and filesystem orchestration. This deterministic package decides immutable
@@ -99,6 +99,17 @@ branches do not justify an arbitrary whole-application percentage. The runnable
 the review fixes. Never lower it to pass. Behavioral DB/fault tests remain
 mandatory regardless of percentages. Go's package-local report can show 0% for
 database code exercised by another package's integration tests.
+
+The independent Go review additionally approved **>=85% statement coverage of
+`internal/retrieval`** for this first implementation. Its pure rules decide exact
+query/geometry acceptance, worker-result identity/norm validity, candidate exclusion,
+deterministic ranking, selected clocks, complete temporal bounds and truncation.
+Errors in these decisions can create misleading evidence even when IO succeeds;
+valid endpoints, adversarial alternatives, tiny adjacent decimals and incomplete
+coverage therefore need explicit behavioral regressions. `scripts/coverage.py`
+enforces both package gates and fails if either package's coverage is missing.
+This is not an arbitrary whole-server percentage and cannot be offset by coverage
+in CLI/HTTP/SQL orchestration. The newly approved gate does not lower the legacy one.
 
 **Independent verification completed on 2026-09-09:** main reran the full server
 command on the latest implementation, including the RFC 6750 separator fix, and
@@ -121,12 +132,17 @@ race-enabled PostgreSQL/CLI/conformance tests, vet, formatting, module checks an
 
 ## Controlled canonical snapshot
 
-`internal/contract/snapshot/manifest.json` pins **contract 0.1.0**, source component
-`contracts`, source base revision **`f4e53f8`**, and explicit **`unreleased-working-tree`**
-provenance. It does not claim working-tree bytes are already committed/released.
-Three SHA-256 entries identify the exact canonical schema, OpenAPI and `VERSION`
-bytes. Embedded checks require `VERSION` to match the provenance manifest and
-`protocol.Version`; maintenance refresh also checks schema/OpenAPI version agreement.
+`internal/contract/snapshot/manifest.json` pins **bundle 0.2.0**, source component
+`contracts`, source revision
+**`5f5ac49e03b25f805f5a89f791727d0c3bd18642`**, and explicit
+**`unreleased-revision`** provenance. That commit contains the exact canonical bytes,
+but bundle 0.2.0 has not been released. Five SHA-256 entries identify the exact
+ingestion/retrieval schema and OpenAPI pairs plus `VERSION`. The manifest's
+`contract_version` is the bundle version;
+`wire_versions:{ingestion:"0.1.0",retrieval:"0.2.0"}` distinguishes wire families.
+Embedded checks require `VERSION` to match the bundle manifest, and each wire family
+to match its separate Go constant. The maintenance refresh checks each schema/OpenAPI
+pair's version. `protocol.Version` stays 0.1.0 for Android ingestion.
 Builds/tests use only
 the consumer-local embedded snapshot, never sibling checkout content.
 
@@ -135,7 +151,15 @@ and uses local resources. Its supported `regexp2` v1.11.0 ECMAScript/Unicode eng
 handles canonical `\u` regex escapes without altering schema bytes. Actual handler
 responses and CLI invitation are schema validated. OpenAPI checks compare actual
 operation/status/media/schema/error code and validate every defined present/required
-response header against its canonical schema, including challenge constants. Decoded
+response header against its canonical schema, including challenge constants. The
+conformance-only semantic oracle also verifies coverage partitions/truncation,
+original-path identity, positive-area geometry, selected-clock membership, evidence
+bounds/chronological order and exact untruncated group/history bounds. Truncated
+history may retain temporal first/last while selecting only unsequenced evidence.
+When the actual request is supplied, it additionally checks generation, result
+budget, threshold, source exclusion, exclusive cutoff and gap consistency. These
+instance-local checks complement DB tests; they cannot prove omitted corpus truth.
+Decoded
 valid/invalid request corpora are independently schema checked then sent through
 actual handlers/PostgreSQL. Raw malformed Unicode escape cases have explicit wire
 regressions because a lossy JSON decoder can erase that invalid syntax before schema
@@ -148,14 +172,15 @@ Refresh only as an explicit reviewed maintenance action:
 
 ```sh
 python3 scripts/refresh-contract.py --source /path/to/canonical/contracts \
-  --source-base f4e53f8 --provenance unreleased-working-tree
+  --source-base 5f5ac49e03b25f805f5a89f791727d0c3bd18642 --provenance unreleased-revision
 ```
 
 The generator copies canonical bytes and deterministically records hashes/version.
 Add `--check` to verify parity with an explicitly selected canonical source without
 changing the snapshot. This source comparison is a maintenance/coordination command,
 not an ordinary sibling build dependency.
-After release use its actual reviewed revision and `released-revision`; review diffs
+For uncommitted bytes use their base revision and `unreleased-working-tree`. After
+an actual release use its reviewed revision and `released-revision`; review diffs
 and rerun all checks. Outer assembly owns cross-component coordination.
 
 `go.mod`/`go.sum` pin dependencies. Dockerfile build/runtime images are digest-pinned;

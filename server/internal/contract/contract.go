@@ -10,11 +10,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/dlclark/regexp2"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"memotrace/server/internal/protocol"
+	"memotrace/server/internal/retrieval"
 )
 
 //go:embed snapshot
@@ -43,6 +45,15 @@ func newCompiler() *jsonschema.Compiler {
 	return c
 }
 
+func validSnapshotProvenance(provenance string) bool {
+	switch provenance {
+	case "unreleased-working-tree", "unreleased-revision", "released-revision":
+		return true
+	default:
+		return false
+	}
+}
+
 func CheckHashes() error {
 	b, err := files.ReadFile("snapshot/manifest.json")
 	if err != nil {
@@ -53,14 +64,15 @@ func CheckHashes() error {
 		SourceBase      string            `json:"source_base_revision"`
 		Provenance      string            `json:"provenance"`
 		Files           map[string]string `json:"files"`
+		WireVersions    map[string]string `json:"wire_versions"`
 	}
 	if err = json.Unmarshal(b, &m); err != nil {
 		return err
 	}
-	if m.ContractVersion != protocol.Version || m.SourceBase == "" || m.Provenance == "" || len(m.Files) != 3 {
+	if m.ContractVersion != retrieval.Version || m.WireVersions["ingestion"] != protocol.Version || m.WireVersions["retrieval"] != retrieval.Version || len(m.WireVersions) != 2 || len(m.SourceBase) != 40 || strings.Trim(m.SourceBase, "0123456789abcdef") != "" || !validSnapshotProvenance(m.Provenance) || len(m.Files) != 5 {
 		return fmt.Errorf("invalid snapshot provenance")
 	}
-	for _, name := range []string{"schemas/ingestion.schema.json", "openapi/ingestion.json", "VERSION"} {
+	for _, name := range []string{"schemas/ingestion.schema.json", "openapi/ingestion.json", "schemas/retrieval.schema.json", "openapi/retrieval.json", "VERSION"} {
 		want, ok := m.Files[name]
 		if !ok {
 			return fmt.Errorf("missing snapshot file hash: %s", name)
@@ -83,45 +95,79 @@ func CheckHashes() error {
 // CompileHeader uses the canonical OpenAPI document's base URI for relative refs.
 // Header schemas still use the genuine JSON Schema validator, including constants.
 func CompileHeader(schema any) (*jsonschema.Schema, error) {
-	if err := CheckHashes(); err != nil {
-		return nil, err
-	}
-	b, err := files.ReadFile("snapshot/schemas/ingestion.schema.json")
+	return compileHeaderFamily("ingestion", schema)
+}
+func compileHeaderFamily(family string, schema any) (*jsonschema.Schema, error) {
+	c, err := familyCompiler()
 	if err != nil {
 		return nil, err
 	}
-	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(b))
-	if err != nil {
-		return nil, err
+	version := protocol.Version
+	if family == "retrieval" {
+		version = retrieval.Version
 	}
-	c := newCompiler()
-	if err = c.AddResource("https://memotrace.example/contracts/0.1.0/schemas/ingestion.schema.json", doc); err != nil {
-		return nil, err
-	}
-	const id = "https://memotrace.example/contracts/0.1.0/openapi/header.json"
+	id := "https://memotrace.example/contracts/" + version + "/openapi/header.json"
 	if err = c.AddResource(id, schema); err != nil {
 		return nil, err
 	}
 	return c.Compile(id)
 }
 func Compile(def string) (*jsonschema.Schema, error) {
+	family := "ingestion"
+	switch def {
+	case "SearchRequest", "HistoryRequest", "SearchResponse", "HistoryResponse", "Hit", "Coverage", "Box", "Query", "Timeline", "Observation", "Dataset", "Region", "Score", "Coordinate", "OriginalPath", "Label", "SequenceID", "TextQuery", "ImageQuery", "WallTimeline", "SequenceTimeline", "Count":
+		family = "retrieval"
+	}
+	return CompileFamily(family, def)
+}
+func CompileFamily(family, def string) (*jsonschema.Schema, error) {
+	c, err := familyCompiler()
+	if err != nil {
+		return nil, err
+	}
+	version := protocol.Version
+	if family == "retrieval" {
+		version = retrieval.Version
+	} else if family != "ingestion" {
+		return nil, fmt.Errorf("unknown wire family")
+	}
+	id := "https://memotrace.example/contracts/" + version + "/schemas/" + family + ".schema.json"
+	return c.Compile(id + "#/$defs/" + def)
+}
+func familyCompiler() (*jsonschema.Compiler, error) {
 	if err := CheckHashes(); err != nil {
 		return nil, err
 	}
-	b, err := files.ReadFile("snapshot/schemas/ingestion.schema.json")
-	if err != nil {
-		return nil, err
-	}
-	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(b))
-	if err != nil {
-		return nil, err
-	}
 	c := newCompiler()
-	const id = "https://memotrace.example/contracts/0.1.0/ingestion.schema.json"
-	if err = c.AddResource(id, doc); err != nil {
-		return nil, err
+	for _, family := range []string{"ingestion", "retrieval"} {
+		b, err := files.ReadFile("snapshot/schemas/" + family + ".schema.json")
+		if err != nil {
+			return nil, err
+		}
+		doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(b))
+		if err != nil {
+			return nil, err
+		}
+		version := protocol.Version
+		if family == "retrieval" {
+			version = retrieval.Version
+		}
+		id := "https://memotrace.example/contracts/" + version + "/schemas/" + family + ".schema.json"
+		if err = c.AddResource("https://memotrace.example/contracts/"+version+"/"+family+".schema.json", doc); err != nil {
+			return nil, err
+		}
+		if err = c.AddResource(id, doc); err != nil {
+			return nil, err
+		}
+		// The retrieval OpenAPI intentionally refers to the unchanged ingestion
+		// sibling document. This is a local URI alias, never a network fetch.
+		if family == "ingestion" {
+			if err = c.AddResource("https://memotrace.example/contracts/0.2.0/schemas/ingestion.schema.json", doc); err != nil {
+				return nil, err
+			}
+		}
 	}
-	return c.Compile(id + "#/$defs/" + def)
+	return c, nil
 }
 func Validate(def string, b []byte) error {
 	s, err := Compile(def)
@@ -132,5 +178,8 @@ func Validate(def string, b []byte) error {
 	if err != nil {
 		return err
 	}
-	return s.Validate(v)
+	if err = s.Validate(v); err != nil {
+		return err
+	}
+	return retrievalSemantics(def, v)
 }

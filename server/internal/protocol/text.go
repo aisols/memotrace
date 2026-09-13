@@ -54,6 +54,9 @@ func validJSONScalars(b []byte) bool {
 	return true
 }
 
+// ValidJSONScalars is shared with the separate retrieval/IPC decimal decoder.
+func ValidJSONScalars(b []byte) bool { return validJSONScalars(b) }
+
 func escapedUnit(b []byte) (uint16, bool) {
 	if len(b) < 6 || b[0] != '\\' || b[1] != 'u' {
 		return 0, false

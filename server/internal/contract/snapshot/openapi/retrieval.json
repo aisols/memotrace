@@ -1,0 +1,146 @@
+{
+  "openapi": "3.1.0",
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "info": {
+    "title": "MemoTrace retrieval",
+    "version": "0.2.0",
+    "summary": "Unreleased development retrieval family",
+    "description": "Public search/history and exact asset originals. See docs/retrieval.md for geometry, ranking, coverage, time and privacy requirements beyond schema validation. Ingestion remains wire 0.1.0 within bundle 0.2.0. No identity/tracking/acquisition or measured retrieval-quality guarantee.",
+    "license": {"name": "AGPL-3.0-only", "identifier": "AGPL-3.0-only"}
+  },
+  "servers": [{"url": "https://memotrace.example", "description": "Synthetic HTTPS origin; trusted bootstrap required."}],
+  "security": [{"deviceToken": []}],
+  "x-contract-status": "unreleased-development",
+  "x-error-statuses": {
+    "invalid_request": [400, 404, 405], "unauthorized": [401], "not_found": [404],
+    "integrity_error": [409], "payload_too_large": [413], "unsupported_media_type": [415], "unavailable": [503]
+  },
+  "paths": {
+    "/v1/archives/{archive_id}/search": {
+      "parameters": [{"$ref": "#/components/parameters/ArchiveId"}],
+      "post": {
+        "operationId": "searchAssets",
+        "summary": "Rank semantic candidate assets within one authorized archive and generation",
+        "description": "Max region cosine per asset; deterministic ties; exclude image-query source and derivatives before rank. Filter explicit exclusive cutoff before rank. Never silently pre-scan only a top-N subset; oversized scope is unavailable. Region boxes are coarse crops, not detections.",
+        "requestBody": {"required": true, "x-max-bytes": 1048576, "content": {"application/json": {"schema": {"$ref": "../schemas/retrieval.schema.json#/$defs/SearchRequest"}}}},
+        "responses": {
+          "200": {
+            "description": "Ranked candidates with indexing coverage, not a physical-identity guarantee.",
+            "headers": {"Cache-Control": {"$ref": "ingestion.json#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "ingestion.json#/components/headers/NoSniff"}},
+            "content": {"application/json": {"schema": {"$ref": "../schemas/retrieval.schema.json#/$defs/SearchResponse"}}}
+          },
+          "400": {"$ref": "#/components/responses/InvalidRequest"}, "401": {"$ref": "#/components/responses/Unauthorized"},
+          "404": {"$ref": "#/components/responses/NotFound"}, "405": {"$ref": "#/components/responses/MethodNotAllowed"},
+          "413": {"$ref": "#/components/responses/PayloadTooLarge"}, "415": {"$ref": "#/components/responses/UnsupportedMediaType"},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
+    },
+    "/v1/archives/{archive_id}/history": {
+      "parameters": [{"$ref": "#/components/parameters/ArchiveId"}],
+      "post": {
+        "operationId": "assetHistory",
+        "summary": "Group qualified candidate observations in one explicitly selected timeline",
+        "description": "min_score is mandatory. Filter cutoff and threshold before grouping; first/last cover all qualified indexed observations before limits. No timeline or unknown time means history_available=false, empty observations, null first/last, ordinary ranked unsequenced_hits. Open Images has no fabricated chronology. Never merge different sequences or wall and sequence clocks.",
+        "requestBody": {"required": true, "x-max-bytes": 1048576, "content": {"application/json": {"schema": {"$ref": "../schemas/retrieval.schema.json#/$defs/HistoryRequest"}}}},
+        "responses": {
+          "200": {
+            "description": "Candidate observations; not proof of object identity, continuous tracking, or acquisition.",
+            "headers": {"Cache-Control": {"$ref": "ingestion.json#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "ingestion.json#/components/headers/NoSniff"}},
+            "content": {"application/json": {"schema": {"$ref": "../schemas/retrieval.schema.json#/$defs/HistoryResponse"}}}
+          },
+          "400": {"$ref": "#/components/responses/InvalidRequest"}, "401": {"$ref": "#/components/responses/Unauthorized"},
+          "404": {"$ref": "#/components/responses/NotFound"}, "405": {"$ref": "#/components/responses/MethodNotAllowed"},
+          "413": {"$ref": "#/components/responses/PayloadTooLarge"}, "415": {"$ref": "#/components/responses/UnsupportedMediaType"},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
+    },
+    "/v1/archives/{archive_id}/search/assets/{asset_id}/original": {
+      "parameters": [{"$ref": "#/components/parameters/ArchiveId"}, {"$ref": "#/components/parameters/AssetId"}],
+      "get": {
+        "operationId": "getAssetOriginal",
+        "summary": "Read an authorized asset's integrity-verified exact JPEG",
+        "description": "Verify exact stored SHA-256 and length before serving bytes, preserve original EXIF. Missing/corrupt stored original is integrity_error; unknown/out-of-scope asset is not_found. An already-authorized in-flight download may finish after revocation.",
+        "responses": {
+          "200": {
+            "description": "Exact original bytes with required image/jpeg media type and byte length.",
+            "headers": {
+              "Cache-Control": {"$ref": "ingestion.json#/components/headers/NoStore"},
+              "X-Content-Type-Options": {"$ref": "ingestion.json#/components/headers/NoSniff"},
+              "Content-Length": {"required": true, "schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/ByteLength"}, "description": "Exact original byte count."}
+            },
+            "content": {"image/jpeg": {"schema": {"type": "string", "format": "binary"}}}
+          },
+          "400": {"$ref": "#/components/responses/InvalidRequest"}, "401": {"$ref": "#/components/responses/Unauthorized"},
+          "404": {"$ref": "#/components/responses/NotFound"}, "405": {"$ref": "#/components/responses/MethodNotAllowed"},
+          "409": {"$ref": "#/components/responses/IntegrityError"}, "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {"deviceToken": {"$ref": "ingestion.json#/components/securitySchemes/deviceToken"}},
+    "parameters": {
+      "ArchiveId": {"name": "archive_id", "in": "path", "required": true, "schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/UUID"}},
+      "AssetId": {"name": "asset_id", "in": "path", "required": true, "schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/UUID"}}
+    },
+    "schemas": {
+      "SearchRequest": {"$ref": "../schemas/retrieval.schema.json#/$defs/SearchRequest"},
+      "HistoryRequest": {"$ref": "../schemas/retrieval.schema.json#/$defs/HistoryRequest"},
+      "SearchResponse": {"$ref": "../schemas/retrieval.schema.json#/$defs/SearchResponse"},
+      "HistoryResponse": {"$ref": "../schemas/retrieval.schema.json#/$defs/HistoryResponse"},
+      "Hit": {"$ref": "../schemas/retrieval.schema.json#/$defs/Hit"},
+      "Coverage": {"$ref": "../schemas/retrieval.schema.json#/$defs/Coverage"},
+      "Timeline": {"$ref": "../schemas/retrieval.schema.json#/$defs/Timeline"},
+      "Box": {"$ref": "../schemas/retrieval.schema.json#/$defs/Box"},
+      "Query": {"$ref": "../schemas/retrieval.schema.json#/$defs/Query"}
+    },
+    "responses": {
+      "InvalidRequest": {
+        "description": "400 invalid_request: malformed/lossy UTF-8 or JSON, duplicate properties, unsupported fields/text, invalid box geometry, or cutoff without explicit timeline. Reject before database/inference access; do not echo the query.",
+        "x-error-codes": ["invalid_request"],
+        "headers": {"Cache-Control": {"$ref": "ingestion.json#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "ingestion.json#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "Unauthorized": {
+        "description": "401 unauthorized: missing/invalid/revoked archive-scoped bearer device credential. Reuse ingestion's case-insensitive Bearer scheme, case-sensitive token and exact challenge. No existence disclosure.",
+        "x-error-codes": ["unauthorized"],
+        "headers": {"Cache-Control": {"$ref": "ingestion.json#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "ingestion.json#/components/headers/NoSniff"}, "WWW-Authenticate": {"$ref": "ingestion.json#/components/headers/BearerChallenge"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "NotFound": {
+        "description": "404 not_found: unknown or out-of-scope archive, query asset, or original. Never disclose another owner's content. Unknown routes may instead use invalid_request.",
+        "x-error-codes": ["not_found", "invalid_request"],
+        "headers": {"Cache-Control": {"$ref": "ingestion.json#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "ingestion.json#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "MethodNotAllowed": {
+        "description": "405 invalid_request for wrong HTTP method.", "x-error-codes": ["invalid_request"],
+        "headers": {"Cache-Control": {"$ref": "ingestion.json#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "ingestion.json#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "IntegrityError": {
+        "description": "409 integrity_error for missing/corrupt stored original, before any JPEG bytes are served.", "x-error-codes": ["integrity_error"],
+        "headers": {"Cache-Control": {"$ref": "ingestion.json#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "ingestion.json#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "PayloadTooLarge": {
+        "description": "413 payload_too_large for a JSON request exceeding 1048576 received bytes.", "x-error-codes": ["payload_too_large"],
+        "headers": {"Cache-Control": {"$ref": "ingestion.json#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "ingestion.json#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "UnsupportedMediaType": {
+        "description": "415 unsupported_media_type: POST requires application/json.", "x-error-codes": ["unsupported_media_type"],
+        "headers": {"Cache-Control": {"$ref": "ingestion.json#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "ingestion.json#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      },
+      "Unavailable": {
+        "description": "503 unavailable: disabled/unavailable model or generation, no indexed assets, oversized exact-search scope, or temporary storage/service/resource failure. Never substitute fabricated vectors, empty success, or silently truncated pre-scan. Retry with bounded backoff; model/index provisioning may require operator action.",
+        "x-error-codes": ["unavailable"],
+        "headers": {"Cache-Control": {"$ref": "ingestion.json#/components/headers/NoStore"}, "X-Content-Type-Options": {"$ref": "ingestion.json#/components/headers/NoSniff"}},
+        "content": {"application/json": {"schema": {"$ref": "../schemas/ingestion.schema.json#/$defs/Error"}}}
+      }
+    }
+  }
+}

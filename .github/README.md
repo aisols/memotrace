@@ -28,15 +28,17 @@ Commands run in order:
 
    ```sh
    python3 scripts/refresh-contract.py --check --source ../contracts \
-     --source-base f4e53f8 --provenance unreleased-working-tree
+     --source-base 5f5ac49e03b25f805f5a89f791727d0c3bd18642 \
+     --provenance unreleased-revision
    ```
 
 3. From `server/`: `bash scripts/verify.sh`.
 4. From `server/`: `docker build -t memotrace-server:local .`.
 
 The server verifier owns formatting checks (no gofmt mutation), module verification,
-vet, build, snapshot conformance, required PostgreSQL/race/fault tests and the **85%
-`internal/protocol` statement-coverage gate**. It creates and cleans up its own
+vet, build, snapshot conformance, required PostgreSQL/race/fault tests and the
+independently approved **>=85% statement-coverage gates for `internal/protocol`
+and `internal/retrieval`, enforced separately**. It creates and cleans up its own
 uniquely named, digest-pinned PostgreSQL-15 container with an ephemeral loopback
 port. No workflow-global PostgreSQL service or operator database is used. See
 [server quality](../server/docs/quality.md) and
@@ -46,10 +48,15 @@ The parity step deliberately reads the selected canonical sibling source; ordina
 component verification and the `server/` Docker build context remain autonomous.
 A mismatch fails CI rather than refreshing generated files. Coordinate canonical
 and consumer snapshot changes in the same reviewed PR using the
-[explicit refresh procedure](../server/docs/quality.md#controlled-canonical-snapshot).
-The base revision `f4e53f8` identifies the first unreleased working-tree snapshot's
-provenance, not a release containing those bytes; hashes identify the actual content.
-Update the parity arguments with the next reviewed provenance change.
+[explicit refresh procedure](../server/docs/quality.md#controlled-canonical-snapshot). The
+[snapshot policy](../contracts/docs/releases.md#controlled-development-snapshot-consumer-owned)
+pins full source revision `5f5ac49e03b25f805f5a89f791727d0c3bd18642`, explicitly
+`unreleased-revision`: that commit contains the exact canonical bytes, but no
+bundle 0.2.0 release exists. SHA-256 entries identify all five artifacts: `VERSION`
+and the ingestion and retrieval schema/OpenAPI pairs. Bundle **0.2.0** contains frozen
+ingestion wire **0.1.0** and retrieval wire **0.2.0**; a bundle bump must not relabel
+ingestion responses. Update source, snapshot, family versions, provenance and parity
+arguments together through review.
 
 Action tag-to-commit pins were checked against the upstream GitHub API:
 
