@@ -21,8 +21,10 @@ import (
 	"memotrace/server/internal/archive"
 	"memotrace/server/internal/bootstrap"
 	"memotrace/server/internal/httpapi"
+	"memotrace/server/internal/inference"
 	"memotrace/server/internal/postgres"
 	"memotrace/server/internal/protocol"
+	"memotrace/server/internal/search"
 )
 
 func main() {
@@ -46,7 +48,13 @@ func run(args []string) error {
 	ttl := f.Duration("ttl", 10*time.Minute, "invitation lifetime, whole seconds 1..600")
 	listen := f.String("listen", "127.0.0.1:8443", "TLS bind address")
 	root := f.String("data-root", "", "existing absolute private data-root directory")
+	workerArgv := f.String("worker-argv", "", "trusted JSON argv array for offline ML worker (default disabled)")
+	workerTimeout := f.Duration("worker-timeout", 75*time.Second, "worker request deadline, at most 5m (HTTP also has 90s total deadline)")
 	migrationTimeout := f.Duration("migration-timeout", defaultMigrationTimeout, "migration deadline (0 disables the deadline)")
+	manifest := f.String("manifest", "", "dataset manifest JSON path for dataset-import")
+	mode := f.String("mode", "overlap", "index policy: full or overlap")
+	maxJobs := f.Int("max-jobs", 15000, "maximum index claim attempts per invocation, 1..15000")
+	request := f.String("request", "-", "search/history request JSON file, or - for stdin")
 	if err := f.Parse(args[1:]); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -73,7 +81,16 @@ func run(args []string) error {
 	defer cancel()
 	switch args[0] {
 	case "serve":
-		return serve(os.Getenv("MEMOTRACE_DSN"), *root, *listen, *cert, *key)
+		w, err := configuredWorker(*workerArgv, *workerTimeout)
+		if err != nil {
+			return err
+		}
+		if w != nil {
+			defer w.Close()
+		}
+		return serveWithWorker(os.Getenv("MEMOTRACE_DSN"), *root, *listen, *cert, *key, w)
+	case "dataset-import", "index", "search", "history":
+		return retrievalCommand(args[0], *archiveID, *root, *manifest, *mode, *maxJobs, *request, *workerArgv, *workerTimeout, output)
 	case "create-archive", "invite", "revoke-device":
 		if adminDSN == "" {
 			return errors.New("admin DSN required")
@@ -155,6 +172,9 @@ func invitationExpiry(now time.Time, ttl time.Duration) time.Time {
 }
 
 func serve(dsn, root, listen, cert, key string) error {
+	return serveWithWorker(dsn, root, listen, cert, key, nil)
+}
+func serveWithWorker(dsn, root, listen, cert, key string, worker *inference.Worker) error {
 	if dsn == "" || cert == "" || key == "" {
 		return errors.New("runtime DSN and TLS keypair required")
 	}
@@ -210,6 +230,9 @@ func serve(dsn, root, listen, cert, key string) error {
 		fmt.Fprintf(os.Stderr, "memotrace: preserved unrecognized entries=%d, incomplete staging entries=%d; operator inspection required\n", unknown, stages)
 	}
 	api := httpapi.New(db, files)
+	if worker != nil {
+		api.Search = search.New(db, files, worker)
+	}
 	srv := &http.Server{Addr: listen, Handler: api, TLSConfig: &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{pair}}, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 90 * time.Second, WriteTimeout: 100 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192, ErrorLog: log.New(io.Discard, "", 0)}
 	finished := make(chan error, 1)
 	listener, err := net.Listen("tcp", listen)

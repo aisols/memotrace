@@ -15,11 +15,13 @@ import (
 	"memotrace/server/internal/archive"
 	"memotrace/server/internal/postgres"
 	"memotrace/server/internal/protocol"
+	"memotrace/server/internal/search"
 )
 
 type API struct {
-	DB    *postgres.Store
-	Files *archive.Files
+	DB     *postgres.Store
+	Files  *archive.Files
+	Search *search.Service
 	// BeforeCommit is available to in-package integration tests; CLI leaves nil.
 	BeforeCommit func() error
 	concurrency  chan struct{}
@@ -120,6 +122,9 @@ func (a *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	parts := strings.Split(r.URL.Path, "/")
+	if a.retrievalRoute(w, r, parts) {
+		return
+	}
 	if len(parts) < 5 || parts[1] != "v1" || parts[2] != "archives" || parts[4] != "frames" || (len(parts) != 5 && len(parts) != 7) {
 		writeError(w, protocol.E("not_found"))
 		return

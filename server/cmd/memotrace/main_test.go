@@ -78,6 +78,7 @@ func TestCLICompleteTLSLifecycleAndShutdown(t *testing.T) {
 	if err = json.Unmarshal(b, &ids); err != nil {
 		t.Fatal(err)
 	}
+	workerArgv, retrievalRequest := prepareCLIRetrieval(t, ids["archive_id"], root)
 	private, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -107,7 +108,7 @@ func TestCLICompleteTLSLifecycleAndShutdown(t *testing.T) {
 	addr := l.Addr().String()
 	l.Close()
 	origin := "https://" + addr
-	server := cli(t, "serve", "--listen", addr, "--data-root", root, "--cert", certPath, "--key", keyPath)
+	server := cli(t, "serve", "--listen", addr, "--data-root", root, "--cert", certPath, "--key", keyPath, "--worker-argv", workerArgv)
 	var stderr bytes.Buffer
 	server.Stderr = &stderr
 	if err = server.Start(); err != nil {
@@ -269,7 +270,7 @@ func TestCLICompleteTLSLifecycleAndShutdown(t *testing.T) {
 		if res.StatusCode != status {
 			t.Fatal(method, path, res.StatusCode, string(out))
 		}
-		if e = contract.CheckResponse(method, path, status, res.Header, out); e != nil {
+		if e = contract.CheckResponse(method, path, status, res.Header, out, body); e != nil {
 			t.Fatal(e)
 		}
 		return out
@@ -277,6 +278,8 @@ func TestCLICompleteTLSLifecycleAndShutdown(t *testing.T) {
 	pairBody, _ := json.Marshal(protocol.PairRequest{InvitationToken: invitation.InvitationToken, DeviceName: "synthetic CLI camera"})
 	var p protocol.PairResponse
 	_ = json.Unmarshal(do("POST", "/v1/pairing/redeem", "", "application/json", pairBody, 201), &p)
+	do("POST", "/v1/archives/"+p.ArchiveID+"/search", p.DeviceToken, "application/json", retrievalRequest, 200)
+	do("POST", "/v1/archives/"+p.ArchiveID+"/history", p.DeviceToken, "application/json", retrievalRequest, 200)
 	var imageBytes bytes.Buffer
 	_ = jpeg.Encode(&imageBytes, image.NewRGBA(image.Rect(0, 0, 3, 2)), nil)
 	wall := int64(1)

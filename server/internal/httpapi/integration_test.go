@@ -102,7 +102,7 @@ func (h *harness) request(method, path, token, media string, body []byte, status
 	if w.Code != status {
 		h.t.Fatalf("%s %s: got %d want %d; %s", method, path, w.Code, status, w.Body.String())
 	}
-	if err := contract.CheckResponse(method, path, w.Code, w.Header(), w.Body.Bytes()); err != nil {
+	if err := contract.CheckResponse(method, path, w.Code, w.Header(), w.Body.Bytes(), body); err != nil {
 		h.t.Fatal("actual HTTP exchange differs from canonical OpenAPI:", err)
 	}
 	if w.Header().Get("Cache-Control") != "no-store" || w.Header().Get("X-Content-Type-Options") != "nosniff" {
