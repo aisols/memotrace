@@ -59,7 +59,10 @@ cannot prove achieved dimensions; public Gallery URIs are device locators and
 their contents may change externally. Clients must freeze or reverify their
 upload source. No missing metadata should be fabricated to fill this contract.
 
-No ML/OCR completion, indexing/search/evidence endpoints, speech, deletion,
+Ingestion wire 0.1.0 remains frozen inside bundle 0.2.0. The separate
+[retrieval family 0.2.0](retrieval.md) now defines search, candidate history and
+asset-original reads. It does not extend old ingestion messages or promise ML
+completion with an archive receipt. No OCR completion, speech, deletion,
 retention-driven phone eviction, cloud VLM, Redis, or E2EE formats are specified.
 A future deletion feature needs tombstones and offline queue/restore semantics;
 a future phone-eviction feature needs an explicit retention/backup decision.

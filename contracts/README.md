@@ -1,23 +1,28 @@
 # MemoTrace Contracts
 
 Autonomous, language-neutral source of truth for the public protocol and persisted
-exchange formats. **Protocol `0.1.0` is an implemented, unreleased development
-contract**, with OpenAPI 3.1, JSON Schema 2020-12, and executable validation.
+exchange formats. **Bundle `0.2.0` is an unreleased development contract bundle**,
+with OpenAPI 3.1, JSON Schema 2020-12, and executable validation. It contains
+**ingestion wire `0.1.0`** (unchanged bytes) and **retrieval wire `0.2.0`**.
 There is no published release or supported client/server combination yet. Schema
 checks do not prove deployed server behavior, filesystem durability, or device sync.
 
 The [normative protocol](docs/protocol.md) defines pairing, registration, exact
 JPEG upload/read, stable historical receipts, errors, and content invariants.
 The [design/status](docs/ingestion-design.md) separates this slice from future work.
+The [retrieval protocol](docs/retrieval.md) defines search, candidate history,
+authorized asset-original reads, indexing coverage and explicit clock semantics.
 
 ## Layout
 
-- `openapi/ingestion.json`: canonical public HTTP API definition (JSON).
-- `schemas/ingestion.schema.json`: single canonical schema library; select `$defs`.
+- `openapi/ingestion.json`, `schemas/ingestion.schema.json`: frozen ingestion 0.1.0.
+- `openapi/retrieval.json`, `schemas/retrieval.schema.json`: retrieval 0.2.0;
+  canonical definitions reference the original shared ingestion primitives/errors.
 - `examples/`: synthetic valid/invalid examples with expected outcomes.
 - `tests/`: schema validation and public-contract consistency checks.
 - `tools/`: component-local validation entry point and offline reference registry.
-- `VERSION`, `pyproject.toml`, `uv.lock`: wire version and pinned validation tools.
+- `VERSION`, `pyproject.toml`, `uv.lock`: bundle/tooling version and pinned tools;
+  family wire versions are independent and explicitly checked.
 
 ## Quality command
 
@@ -39,7 +44,9 @@ uv run --locked --offline python -m tools.verify
 The command runs real `jsonschema` (including runtime date-time formats) and
 `openapi-spec-validator`, all fixture expectations, reference/HTTP drift checks,
 and boundary matrices, including exact raw-decimal and Unicode interoperability
-regressions and the two operation-specific 401 challenges. It exits nonzero on
+regressions and the two operation-specific 401 challenges, plus retrieval's full
+HTTP matrix, semantic geometry checks and frozen ingestion SHA-256 regressions.
+The original 977 ingestion tests remain enforced. It exits nonzero on
 failures, skips, or an empty suite.
 See [quality requirements](docs/quality.md) for coverage and limitations. No
 sibling sources, cloud account, running server, database, or phone is needed.
@@ -61,8 +68,8 @@ consumers must not edit generated copies or require `../contracts` at build time
 Do not require a live server to generate clients during an ordinary build.
 
 See the [controlled snapshot/release procedure and compatibility policy](docs/releases.md).
-Protocol/schema versions are independent of client/server application versions.
-Every object is closed in 0.1.0, including nested requests: unknown fields fail
+Bundle, wire-family and client/server application versions are independent.
+Every object is closed in both families, including nested requests: unknown fields fail
 validation. Even an additive field needs compatibility/version review; a patch
 version is not permission to add fields. Test supported combinations once
 consumers exist, including persisted recordings uploaded by older applications.

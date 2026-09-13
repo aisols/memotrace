@@ -301,7 +301,7 @@ wheels = [
 
 [[package]]
 name = "memotrace-contract-checks"
-version = "0.1.0"
+version = "0.2.0"
 source = { virtual = "." }
 dependencies = [
     { name = "jsonschema", extra = ["format-nongpl"] },

@@ -36,7 +36,8 @@ uv run --locked --offline python -m tools.verify
 2. **Validate actual OpenAPI** with `OpenAPIV31SpecValidator`, including external
    canonical refs. A broken OpenAPI document is a validator rejection test.
 3. **Closed offline reference resolution**: discover all `$ref` values; every
-   one must resolve in the two preloaded documents. Canonical `$id` is an identity,
+   one must resolve in the four preloaded documents (two schema/OpenAPI pairs).
+   Each family has a unique canonical `$id`, which is an identity,
    not a fetch URL. Both validators receive explicit local registries/handlers;
    there is no network or arbitrary-file fallback. Unknown refs fail closed.
 4. **Fixture expectations**: every named definition has an accepted fixture.
@@ -69,6 +70,37 @@ uv run --locked --offline python -m tools.verify
    bounds, actual CLI TTL rejection, and unexpired output timing are explicit
    server-runtime obligations. Schema-valid out-of-range ports/late expiry are
    retained as counterexamples, not presented as successful runtime checks.
+9. **Bundle/family compatibility**: bundle/tool version 0.2.0, ingestion wire
+   0.1.0, retrieval wire 0.2.0; reject mismatched versions and duplicate resource
+   IDs. Preserve the original 977 ingestion tests and exact schema/OpenAPI SHA-256
+   (`9dcc7ab98a2d77357c3a00e966590e282525962fa33c2aeb58c1b12ccdecb783` /
+   `eafc37a24fddd70c6afd6c6ed1290f60ad62c691f650ba8af365cfbd9156b37b`).
+   The read-only snapshot manifest covers VERSION and both document pairs.
+10. **Retrieval boundaries**: strict text/image union, query limits and required
+    history threshold; finite score/coordinate bounds; scalar text/NUL policy;
+    timeline and cutoff dependency; source/nullability and empty unknown history;
+    all three HTTP routes with complete statuses, media, headers, error refs and
+    reused case-insensitive bearer scheme/challenge. Every definition has a
+    synthetic fixture; positive/negative fixtures and generated boundary/raw-text
+    cases use the actual canonical definitions and offline refs.
+11. **Supplemental semantic comparisons**: `tools.retrieval.validate` applies
+    real schema validation plus finite-number checks, positive box width/height,
+    coverage partition/incomplete-index truncation, original-path identity and
+    distinct evidence. History checks exact selected-clock membership, timed vs
+    unsequenced placement, evidence within its own group, chronological disjoint
+    groups and complete/truncated time/score-bound relationships. Optional decoded
+    request context checks generation/timeline, cutoff, threshold, budget, source
+    asset exclusion and gap consistency without guessing unavailable DB facts.
+    Raw-wire counterexamples include all-null evidence supporting fictional wall
+    observations, misplaced timed hits, wrong observation times, falsely complete
+    coverage, mixed sequences and group/global-bound contradictions.
+    Exact-positive box regressions preserve `1e-400` widths and decimal endpoints
+    collapsed by binary64, including nested query/response validation under low
+    Decimal context precision. No float64-safety restriction is introduced.
+    These are not substitutes for real HTTP/DB tests of complete retrieval and
+    provenance, authorization or model inference. The approved retrieval-domain
+    gate remains [server-owned](../../server/docs/quality.md); this document does
+    not prescribe or duplicate its coverage counts.
 
 The gate is exhaustive **declared boundary/relationship coverage**, not an
 arbitrary application line-coverage percentage. Schema keywords and public

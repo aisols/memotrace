@@ -1,0 +1,15 @@
+[
+  {"name": "mixed-query", "definition": "Query", "instance": {"text": "hammer", "asset_id": "44444444-4444-4444-4444-444444444444"}, "keyword": "oneOf", "path": []},
+  {"name": "external-image-url", "definition": "Query", "instance": {"source_uri": "https://images.example/synthetic.jpg"}, "keyword": "oneOf", "path": []},
+  {"name": "box-too-short", "definition": "Box", "instance": [0, 0, 1], "keyword": "minItems", "path": []},
+  {"name": "box-outside-image", "definition": "Box", "instance": [0, 0, 1.01, 1], "keyword": "maximum", "path": [2]},
+  {"name": "score-not-probability", "definition": "Score", "instance": 1.01, "keyword": "maximum", "path": []},
+  {"name": "nul-text", "definition": "TextQuery", "instance": {"text": "red\u0000hammer"}, "keyword": "pattern", "path": ["text"]},
+  {"name": "timeline-mixes-clocks", "definition": "Timeline", "instance": {"kind": "wall", "sequence_id": "synthetic-sequence"}, "keyword": "oneOf", "path": []},
+  {"name": "history-no-threshold", "definition": "HistoryRequest", "instance": {"generation_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "query": {"text": "hammer"}}, "keyword": "required", "path": []},
+  {"name": "cutoff-without-timeline", "definition": "SearchRequest", "instance": {"generation_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "query": {"text": "hammer"}, "before_ms": 0}, "keyword": "required", "path": []},
+  {"name": "cutoff-null-timeline", "definition": "SearchRequest", "instance": {"generation_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "query": {"text": "hammer"}, "before_ms": 0, "timeline": null}, "keyword": "not", "path": ["timeline"]},
+  {"name": "original-filesystem-path", "definition": "OriginalPath", "instance": "/private/data/synthetic.jpg", "keyword": "pattern", "path": []},
+  {"name": "dataset-annotation-leak", "definition": "Dataset", "instance": {"name": "synthetic", "version": "1", "item_id": "1", "label": "hammer"}, "keyword": "additionalProperties", "path": []},
+  {"name": "full-region-cropped", "definition": "Region", "instance": {"kind": "full", "box": [0.25, 0, 1, 1]}, "keyword": "const", "path": ["box"]}
+]

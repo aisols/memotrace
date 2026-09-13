@@ -1,14 +1,30 @@
 # Versions, compatibility, and controlled distribution
 
-Current `VERSION`: **0.1.0, unreleased development contract**. No public
-`contracts/v0.1.0` release, compatibility certification, or supported consumer
+Current `VERSION`: **0.2.0, unreleased development bundle**. No public
+`contracts/v0.2.0` release, compatibility certification, or supported consumer
 matrix is asserted. Paths use `/v1` but that path prefix is not evidence that the
 pre-1.0 contract is stable. Contract, application, database-migration, and
 model/index versions are independent.
 
 ## Compatibility policy
 
-`contract_version` is exactly `0.1.0` wherever the current schemas require it.
+`VERSION` and the tooling project version identify the **bundle**, not every
+wire family within it:
+
+| Family | Wire version / OpenAPI info | Canonical schema identity |
+| --- | --- | --- |
+| Ingestion | `0.1.0` | `https://memotrace.example/contracts/0.1.0/ingestion.schema.json` |
+| Retrieval | `0.2.0` | `https://memotrace.example/contracts/0.2.0/retrieval.schema.json` |
+
+`contract_version` remains exactly `0.1.0` in health, invitation, pairing,
+manifest and receipt responses. Retrieval responses require exactly `0.2.0`.
+The ingestion schema/OpenAPI bytes are frozen, including their IDs, info and
+version constants. Their minimum required ingestion schema/wire version remains
+`0.1.0` even when archived in a source **bundle version `0.2.0`**. A bundle bump
+does not authorize relabeling old responses, changing receipts or breaking an
+ingestion-only/mobile consumer. The original 977-test corpus and explicit hashes
+remain enforced. Error objects retain the original unversioned Error shape.
+
 Client/server pairs must explicitly agree on the pinned contract. Pairing and
 manifest requests deliberately have no version field; endpoints and trusted
 bootstrap select the protocol. Unsupported version values fail the relevant
@@ -46,17 +62,19 @@ generation. Server owns its snapshot creation/refresh and provenance manifest.
    quality command at that tree. Record the checked source revision and whether
    the files include unreleased/uncommitted working-tree changes.
 2. Copy these wire artifacts **byte-for-byte**, preserving their relative layout:
-   `VERSION`, `openapi/ingestion.json`, `schemas/ingestion.schema.json`. Keep the
+   `VERSION`, `openapi/ingestion.json`, `schemas/ingestion.schema.json`,
+   `openapi/retrieval.json`, `schemas/retrieval.schema.json`. Keep the
    whole schema (all `$defs`), not a hand-maintained subset. Add normative
-   `docs/protocol.md`, `docs/releases.md`, and `examples/` if consumed by conformance
+   `docs/protocol.md`, `docs/retrieval.md`, `docs/releases.md`, and `examples/` if consumed by conformance
    tooling or distributed as documentation; hash every copied file.
 3. Compute SHA-256 over each source file's raw bytes, then verify the destination
-   bytes match. The consumer's manifest records `contract_version`, source
+   bytes match. The consumer's manifest records `bundle_version`, `wire_versions`, source
    repository identity, source revision, explicit working-tree status, refresh
    provenance, and a relative-path-to-SHA-256 map. No timestamps or fake revision
    strings may substitute for content integrity.
-4. For **this first working-tree snapshot**, record base source revision
-   **`f4e53f8`**, explicitly labeled **unreleased working-tree contract 0.1.0**,
+4. For **this retrieval working-tree snapshot**, record base source revision
+   **`0ebc2a87752e533f1fa50fd138b15b68546b4fcc`**, explicitly labeled
+   **unreleased working-tree bundle 0.2.0, ingestion 0.1.0/retrieval 0.2.0**,
    plus the actual file content hashes. This base revision does not contain the
    new definitions and must not be represented as their final source commit.
    On later reviewed refresh, replace it with the actual source commit/release
@@ -72,8 +90,30 @@ generation. Server owns its snapshot creation/refresh and provenance manifest.
 Example checksum inspection from the selected component root (no file mutation):
 
 ```sh
-sha256sum VERSION openapi/ingestion.json schemas/ingestion.schema.json
+sha256sum VERSION openapi/ingestion.json schemas/ingestion.schema.json openapi/retrieval.json schemas/retrieval.schema.json
 ```
+
+Generate the read-only provenance JSON from the component root (stdout; this
+does not copy files or modify a consumer manifest):
+
+```sh
+uv run --locked python -m tools.snapshot \
+  --source-repository https://github.com/aisols/memotrace.git \
+  --source-revision 0ebc2a87752e533f1fa50fd138b15b68546b4fcc \
+  --source-status unreleased-working-tree
+```
+
+The output records `bundle_version: "0.2.0"`,
+`wire_versions: {"ingestion":"0.1.0","retrieval":"0.2.0"}`, full base revision,
+explicit source status and raw SHA-256 of all five artifacts. It validates both
+pairs before producing hashes, but is not a substitute for the full test command.
+It never determines/claims a clean Git tree or writes another component.
+Only use `committed` after verifying that the recorded commit actually contains
+the exact source bytes. For existing consumer manifest fields named
+`contract_version`/`source_version`, document whether they mean bundle or wire
+family; add explicit family versions rather than deriving ingestion requirements
+from bundle `VERSION`. Previously pinned ingestion-only 0.1.0 snapshots remain
+valid historical pins until an explicitly reviewed consumer refresh.
 
 Consumers choose the manifest filename/embedding mechanism; this component does
 not write consumer snapshots. The schema's reserved `https://memotrace.example/`
@@ -88,9 +128,10 @@ Publishing requires a separately authorized, reviewed change and release action:
 1. Resolve independent review findings and pass the latest revision's component
    checks and applicable consumer/cross-component tests. Record limitations and
    real results; schema success is not deployment/device evidence.
-2. Apply the compatibility decision, update `VERSION`, schema `$id` and version
-   constant, OpenAPI info, fixtures, tooling project version, and release notes
-   coherently. Do not mutate an already distributed version's wire meanings.
+2. Apply the compatibility decision, update bundle `VERSION` and tooling project
+   metadata/lock coherently. For each changed wire family, update only that family's
+   schema `$id`, version constant, OpenAPI info, fixtures, family registry and
+   release notes. Preserve unaffected family bytes and historical meanings.
 3. Build an artifact preserving the component layout. Include canonical documents,
    normative docs, fixtures/expectations, executable tools/tests and their lock,
    the **complete unmodified root AGPL license**, and applicable notices. Exclude
@@ -99,7 +140,7 @@ Publishing requires a separately authorized, reviewed change and release action:
    the artifact digest and release notes with supported combinations and explicit
    limitations. Preserve required corresponding source and license notices.
 5. Use the repository's reviewed PR workflow and an explicitly authorized tag
-   such as `contracts/v0.1.0` only when that release truly exists. Consumers pin
+   such as `contracts/v0.2.0` only when that release truly exists. Consumers pin
    the artifact/version/checksum and refresh through review.
 
 No automated publisher or generated SDK is introduced. The original contract

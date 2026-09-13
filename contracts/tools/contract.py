@@ -17,6 +17,11 @@ from referencing.jsonschema import DRAFT202012
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = "schemas/ingestion.schema.json"
 OPENAPI_PATH = "openapi/ingestion.json"
+FAMILIES = {
+    "ingestion": {"version": "0.1.0", "schema": SCHEMA_PATH, "openapi": OPENAPI_PATH},
+    "retrieval": {"version": "0.2.0", "schema": "schemas/retrieval.schema.json", "openapi": "openapi/retrieval.json"},
+}
+BUNDLE_VERSION = "0.2.0"
 
 
 def _unique_object(pairs):
@@ -89,17 +94,27 @@ def walk(value, path=()):
 
 
 class Contract:
-    def __init__(self, root=ROOT):
+    def __init__(self, root=ROOT, family="ingestion"):
         self.root = Path(root).resolve()
-        self.schema_uri = (self.root / SCHEMA_PATH).as_uri()
-        self.openapi_uri = (self.root / OPENAPI_PATH).as_uri()
-        self.schema = read_json(self.root / SCHEMA_PATH)
-        self.openapi = read_json(self.root / OPENAPI_PATH)
-        self.documents = {
-            self.schema_uri: self.schema,
-            self.schema["$id"]: self.schema,
-            self.openapi_uri: self.openapi,
-        }
+        self.family = family
+        selected = FAMILIES[family]
+        self.schema_uri = (self.root / selected["schema"]).as_uri()
+        self.openapi_uri = (self.root / selected["openapi"]).as_uri()
+        self.documents = {}
+        self.families = {}
+        for name, paths in FAMILIES.items():
+            schema = read_json(self.root / paths["schema"])
+            openapi = read_json(self.root / paths["openapi"])
+            for uri, document in (
+                ((self.root / paths["schema"]).as_uri(), schema),
+                (schema["$id"], schema),
+                ((self.root / paths["openapi"]).as_uri(), openapi),
+            ):
+                if uri in self.documents:
+                    raise ValueError("Duplicate contract resource identity")
+                self.documents[uri] = document
+            self.families[name] = (schema, openapi)
+        self.schema, self.openapi = self.families[family]
         self.registry = Registry(retrieve=self._deny_retrieval).with_resources(
             (uri, Resource.from_contents(doc, default_specification=DRAFT202012))
             for uri, doc in self.documents.items()
@@ -138,23 +153,30 @@ class Contract:
             value = self.resolve(value["$ref"])
         return value
 
-    def validate_openapi(self, document=None):
+    def validate_openapi(self, document=None, base_uri=None):
         path = SchemaPath.from_dict(
             self.openapi if document is None else document,
-            base_uri=self.openapi_uri,
+            base_uri=base_uri or self.openapi_uri,
             handlers={scheme: self._document for scheme in ("file", "https", "http")},
         )
         OpenAPIV31SpecValidator(path).validate()
 
     def validate_documents(self):
-        Draft202012Validator.check_schema(self.schema)
-        for definition in self.schema["$defs"].values():
-            Draft202012Validator.check_schema(definition)
-        for uri, document in (
-            (self.schema_uri, self.schema),
-            (self.openapi_uri, self.openapi),
-        ):
-            for _, node in walk(document):
-                if isinstance(node, dict) and "$ref" in node:
-                    self.resolve(node["$ref"], uri)
-        self.validate_openapi()
+        if (self.root / "VERSION").read_text().strip() != BUNDLE_VERSION:
+            raise ValueError("Unexpected contract bundle version")
+        for name, (schema, openapi) in self.families.items():
+            family = FAMILIES[name]
+            version = family["version"]
+            if (schema["$defs"]["ContractVersion"]["const"] != version
+                    or openapi["info"]["version"] != version
+                    or schema["$id"] != f"https://memotrace.example/contracts/{version}/{name}.schema.json"):
+                raise ValueError("Unexpected wire-family version or identity")
+            Draft202012Validator.check_schema(schema)
+            for definition in schema["$defs"].values():
+                Draft202012Validator.check_schema(definition)
+            openapi_uri = (self.root / family["openapi"]).as_uri()
+            for uri, document in ((schema["$id"], schema), (openapi_uri, openapi)):
+                for _, node in walk(document):
+                    if isinstance(node, dict) and "$ref" in node:
+                        self.resolve(node["$ref"], uri)
+            self.validate_openapi(openapi, openapi_uri)

@@ -1,6 +1,6 @@
 [project]
 name = "memotrace-contract-checks"
-version = "0.1.0"
+version = "0.2.0"
 description = "Standalone offline checks for the MemoTrace development wire contract"
 requires-python = ">=3.12"
 license = "AGPL-3.0-only"

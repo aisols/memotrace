@@ -1,6 +1,6 @@
 # Synthetic schema fixtures
 
-`valid.json` maps each canonical `$defs` name to one accepted instance.
+`valid.json` maps each ingestion `$defs` name to one accepted instance.
 `invalid.json` contains complete rejected instances, the target definition, and
 the expected JSON Schema **keyword and instance path**. Every entry is exercised
 by the quality command; a failure for an unrelated reason does not satisfy an
@@ -31,3 +31,15 @@ production issuance must generate 32 cryptographically random bytes.
 Examples prove schema acceptance/rejection only; the normative scenario table in
 `docs/protocol.md` defines the expectations that consumer integration tests must
 exercise against actual runtime behavior.
+
+`retrieval-valid.json` maps each retrieval `$defs` name to an accepted synthetic
+instance. Its Open Images provenance names are **illustrative, not downloaded
+items**; all three source time fields are null, history is unavailable, and the
+unsequenced result is ordinary semantic rank. The separate Observation fixture
+uses a synthetic sequence/frame and a distinct wall clock. `retrieval-invalid.json`
+records exact keyword/path expectations for strict query variants, geometry
+bounds, text, timeline/cutoff, explicit threshold and private-field rejection.
+`tests/test_retrieval.py` adds field/raw-text/HTTP matrices and schema-valid
+semantic counterexamples rejected by `tools.retrieval.validate`. Genuine model,
+dataset or temporal quality requires separate server evidence; these fixtures
+are not benchmark measurements.

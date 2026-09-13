@@ -1,0 +1,70 @@
+{
+  "ContractVersion": "0.2.0",
+  "UUID": "44444444-4444-4444-4444-444444444444",
+  "SHA256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "Milliseconds": 1000,
+  "Count": 1,
+  "Score": 0.75,
+  "Coordinate": 0.25,
+  "Box": [0, 0.25, 0.75, 1],
+  "Label": "Synthetic dataset 📷",
+  "SequenceID": "synthetic-sequence",
+  "TextQuery": {"text": "красная отвёртка / red screwdriver 📷"},
+  "ImageQuery": {"asset_id": "44444444-4444-4444-4444-444444444444", "box": [0, 0.25, 0.75, 1]},
+  "Query": {"text": "scissors"},
+  "WallTimeline": {"kind": "wall"},
+  "SequenceTimeline": {"kind": "sequence", "sequence_id": "synthetic-sequence"},
+  "Timeline": null,
+  "SearchRequest": {
+    "generation_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "query": {"text": "красная отвёртка"}, "limit": 20, "min_score": -1
+  },
+  "HistoryRequest": {
+    "generation_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "query": {"asset_id": "66666666-6666-6666-6666-666666666666"}, "min_score": 0.5,
+    "timeline": {"kind": "sequence", "sequence_id": "synthetic-sequence"}, "before_ms": 1001, "gap_ms": 30000
+  },
+  "Dataset": {"name": "Open Images", "version": "synthetic-fixture-not-downloaded", "item_id": "synthetic-item"},
+  "Region": {"kind": "crop", "box": [0, 0.25, 0.75, 1]},
+  "OriginalPath": "/v1/archives/22222222-2222-2222-2222-222222222222/search/assets/44444444-4444-4444-4444-444444444444/original",
+  "Hit": {
+    "asset_id": "44444444-4444-4444-4444-444444444444", "source_kind": "dataset", "frame_id": null,
+    "dataset": {"name": "Open Images", "version": "synthetic-fixture-not-downloaded", "item_id": "synthetic-item"},
+    "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "score": 0.75,
+    "region": {"kind": "crop", "box": [0, 0.25, 0.75, 1]},
+    "observed_at_ms": null, "sequence_id": null, "sequence_position_ms": null,
+    "original_path": "/v1/archives/22222222-2222-2222-2222-222222222222/search/assets/44444444-4444-4444-4444-444444444444/original"
+  },
+  "Coverage": {"assets_total": 3, "assets_indexed": 1, "pending": 1, "failed": 1, "regions_indexed": 7},
+  "SearchResponse": {
+    "contract_version": "0.2.0", "archive_id": "22222222-2222-2222-2222-222222222222",
+    "generation_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "coverage": {"assets_total": 3, "assets_indexed": 1, "pending": 1, "failed": 1, "regions_indexed": 7},
+    "hits": [], "truncated": true
+  },
+  "Observation": {
+    "start_ms": 1000, "end_ms": 1000, "max_score": 0.75,
+    "evidence": [{
+      "asset_id": "44444444-4444-4444-4444-444444444444", "source_kind": "frame", "frame_id": "55555555-5555-5555-5555-555555555555", "dataset": null,
+      "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "score": 0.75,
+      "region": {"kind": "full", "box": [0, 0, 1, 1]},
+      "observed_at_ms": 1788957296000, "sequence_id": "synthetic-sequence", "sequence_position_ms": 1000,
+      "original_path": "/v1/archives/22222222-2222-2222-2222-222222222222/search/assets/44444444-4444-4444-4444-444444444444/original"
+    }]
+  },
+  "HistoryResponse": {
+    "contract_version": "0.2.0", "archive_id": "22222222-2222-2222-2222-222222222222",
+    "generation_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "coverage": {"assets_total": 1, "assets_indexed": 1, "pending": 0, "failed": 0, "regions_indexed": 7},
+    "timeline": null, "history_available": false, "observations": [],
+    "unsequenced_hits": [{
+      "asset_id": "44444444-4444-4444-4444-444444444444", "source_kind": "dataset", "frame_id": null,
+      "dataset": {"name": "Open Images", "version": "synthetic-fixture-not-downloaded", "item_id": "synthetic-item"},
+      "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "score": 0.75,
+      "region": {"kind": "crop", "box": [0, 0.25, 0.75, 1]},
+      "observed_at_ms": null, "sequence_id": null, "sequence_position_ms": null,
+      "original_path": "/v1/archives/22222222-2222-2222-2222-222222222222/search/assets/44444444-4444-4444-4444-444444444444/original"
+    }],
+    "first_observed_ms": null, "last_observed_ms": null, "truncated": false, "interpretation": "candidate_observations"
+  }
+}

@@ -317,8 +317,9 @@ class ContractTests(unittest.TestCase):
                 CONTRACT.resolve(uri)
 
     def test_versions_dialects_and_fixture_definition_coverage(self):
-        version = (ROOT / "VERSION").read_text().strip()
-        self.assertEqual(version, "0.1.0")
+        bundle_version = (ROOT / "VERSION").read_text().strip()
+        self.assertEqual(bundle_version, "0.2.0")
+        version = "0.1.0"  # Ingestion wire expectations remain independent of the bundle.
         self.assertEqual(CONTRACT.openapi["info"]["version"], version)
         self.assertEqual(CONTRACT.schema["$defs"]["ContractVersion"]["const"], version)
         self.assertIn(f"/{version}/", CONTRACT.schema["$id"])
@@ -328,7 +329,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(set(VALID), set(CONTRACT.schema["$defs"]))
         self.assertEqual(len({c["name"] for c in INVALID}), len(INVALID))
         project = tomllib.loads((ROOT / "pyproject.toml").read_text())
-        self.assertEqual(project["project"]["version"], version)
+        self.assertEqual(project["project"]["version"], bundle_version)
 
     def test_all_objects_have_explicit_field_policy(self):
         for definition, required in REQUIRED.items():
