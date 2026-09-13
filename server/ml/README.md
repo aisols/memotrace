@@ -273,10 +273,12 @@ Returned crop boxes are coarse match regions, not predicted object detections.
 provides both fingerprints before any indexing. The model fingerprint covers
 manifest content, weights/tokenizer, preprocessing version, query rounding,
 precision/runtime versions, Python/architecture and bounded runtime settings.
-Numerical runtime identity parses each installed distribution's bounded `RECORD`,
-then reads, hashes, and verifies the actual bounded regular-file bytes for Python
-and native wheels. It fails closed on missing files, symlinks, unhashed entries, or
-declared hash/size drift. Only installer-generated `../bin` scripts are excluded:
+Numerical runtime identity is limited to the selected model runtime distributions:
+Torch, Transformers, Tokenizers, NumPy, Pillow, Safetensors and threadpoolctl. For
+each selected distribution, it parses the bounded `RECORD`, then reads, hashes, and
+verifies the actual bounded regular-file bytes for Python and native wheels. It fails
+closed on missing files, symlinks, unhashed entries, or declared hash/size drift.
+Only installer-generated `../bin` scripts are excluded:
 the module worker does not execute them and their shebangs encode installation
 paths. The resulting inventory uses deterministic relative names, never installation
 paths or environment values, and bounded file counts and bytes cap startup I/O. The

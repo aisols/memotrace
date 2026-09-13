@@ -4,10 +4,13 @@
 
 MemoTrace has no released or supported software versions yet. The repository
 contains an early local-only Android recorder and an executable, unreleased
-Go ingestion server with contract 0.1.0. It is not a production-ready system.
+Go ingestion server with bounded experimental image/text retrieval and candidate
+history. Contract bundle 0.2.0 preserves ingestion wire 0.1.0 and adds retrieval
+wire 0.2.0. It is not a production-ready system.
 The recorder requests no network permission and disables backup; it does not yet
 synchronize its archive. The broader design includes controls not implemented by
-this slice. Independent review and final-revision verification remain required.
+this slice. Subsequent implementation changes require applicable independent review
+and final-revision verification.
 
 ## Ingestion Slice: Implemented Boundary and Limits
 
@@ -51,9 +54,45 @@ and integrity-recovery handling are defined in the
 
 Synthetic two-owner, TLS, database and process/fault tests are component gates,
 not proof of physical power-loss durability, restored-backup recovery or production
-shared-service readiness. ML consumers, cloud analysis and Android synchronization
-are unimplemented. The [accepted slice decision](docs/decisions/0006-ingestion-v0-1.md)
-records implementation direction, not security certification.
+shared-service readiness. Cloud analysis and Android synchronization remain
+unimplemented. The [ingestion decision](docs/decisions/0006-ingestion-v0-1.md)
+records that historical slice; the [retrieval decision](docs/decisions/0007-object-retrieval.md)
+extends implementation direction without claiming security certification.
+
+## Experimental Retrieval and Public Data
+
+The [retrieval slice](server/docs/retrieval.md) adds archive-scoped assets, indexing
+leases, exact-cosine image/text search and candidate history. It rejects corpora
+above 5000 archive assets or 50000 regions in a generation before query filtering;
+these are bounded experiment limits, not a large-archive availability guarantee.
+HTTP uses existing archive credentials; local import/index/search/history are
+trusted operator commands. Ingestion receipts remain independent of indexing.
+
+The optional [Python worker](server/ml/README.md) uses pre-acquired, hash-verified
+SigLIP2 files, offline loading and no remote model code or runtime download. Go owns
+jobs, persistence and bounded subprocess lifecycle; the child receives no inherited
+DB/admin/AWS/device credentials. It is a trusted same-UID subprocess, **not an OS
+filesystem/network sandbox**. The standalone Docker image is Go-only; a combined
+Python/model deployment is not provided.
+
+User-directed **public Open Images and synthetic experiments** explicitly defer
+encrypted deployment. Keep their downloaded artifacts, annotations, attribution,
+model files and raw reports outside Git. This deferral does not approve unencrypted
+private recordings, crops, embeddings, queries or history; private deployment still
+requires the operator-provisioned encryption, key custody and recovery above.
+Public-data provenance and [model/dataset licensing](docs/licensing.md#third-party-material)
+remain applicable.
+
+Cosine scores and crop matches are candidates, not calibrated confidence, learned
+stable physical-object identity or tracking. History uses only explicit source
+clocks; Open Images has none and cannot establish chronology or first/last sightings.
+Ego4D access and temporal-quality evaluation are pending. The
+[dated main-verification report](server/docs/retrieval-main-verification-2026-09-10.md)
+records pre-hardening local checks, genuine-model public-data evaluation and
+Go/PostgreSQL CLI/HTTPS verification. Open Images
+retains null clocks and unavailable chronological history. Hosted CI, PR/merge and
+deployment gates remain pending; fresh v3 acquisition and a live current-source rerun
+are also pending. Historical local verification is not security certification.
 
 ## Reporting
 
@@ -65,10 +104,12 @@ Establish and publish a private contact before the first external software relea
 
 ## Sensitive Material
 
-- Keep archives, metadata exports, database dumps, and backups outside Git.
+- Keep archives, metadata exports, database dumps, backups, embeddings, query/history
+  exports, downloaded public datasets, model weights and raw reports outside Git.
 - Do not commit pairing tokens, cloud API keys, signing keys, or real `.env` files.
 - Treat OCR text, image crops, screenshots, audio, and logs as potentially private.
-- Use synthetic examples for issues, tests, and demonstrations.
+- Use synthetic examples for ordinary tests/issues; public experiments must retain
+  source/license provenance and keep downloaded artifacts outside Git.
 - Review diffs and staged files; ignore rules are not a secret scanner.
 
 If a secret is exposed, revoke or rotate it. Removing it from the latest commit

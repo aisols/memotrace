@@ -1,5 +1,23 @@
 # Verification and contract provenance
 
+Current retrieval extension: the required Go verifier enforces independently
+approved **>=85% statement coverage for each of `internal/protocol` and
+`internal/retrieval`**, independently rather than averaging the packages. New lifecycle,
+populated-v1 migration, lease/retry/fencing/COMMIT-failure, owner isolation, scope,
+exact cutoff/history/source exclusion and actual CLI/TLS tests run in that same
+disposable-PG/race gate. The independently built ML component has its own
+[Python checks](../ml/README.md); those are separate from Go/model-free verification.
+See [retrieval commands](retrieval.md) and the
+[dated main verification](retrieval-main-verification-2026-09-10.md). That report's
+local checks and genuine-model CLI/TLS/benchmark evidence apply only to its recorded
+pre-hardening source. Current live evidence requires fresh v3 acquisition and a
+model/data rerun. At the dated source, main measured protocol
+**94.4% (238/252)** and retrieval **91.8% (259/282)** against their separate 85% gates.
+ML's independently approved images statement gate is **>=95%**; main measured
+**100% (114/114 statements)** and reported **100% (36/36 branches)**. The
+[review-fix builder record](retrieval-review-verification-2026-09-09.md) and ingestion
+record below are also retained as historical evidence.
+
 ## Required command
 
 From the component root: **`bash scripts/verify.sh`**. Linux, Go 1.26.4, Python 3,
@@ -111,8 +129,25 @@ enforces both package gates and fails if either package's coverage is missing.
 This is not an arbitrary whole-server percentage and cannot be offset by coverage
 in CLI/HTTP/SQL orchestration. The newly approved gate does not lower the legacy one.
 
-**Independent verification completed on 2026-09-09:** main reran the full server
-command on the latest implementation, including the RFC 6750 separator fix, and
+Additional opt-in, model-free Go/real-Python decode IPC regression (requires the
+installed locked ML virtual environment, downloads no model/data):
+
+```sh
+MEMOTRACE_TEST_ML_PYTHON="$PWD/ml/.venv/bin/python" bash scripts/verify.sh
+```
+
+`TestHTTPPythonDecodeFailureAndExactQueryPixels` ingests a header-valid JPEG with
+broken entropy and proves the genuine Python decoder fails before test-encoder
+inference, yielding generic503. Unsupported text remains400. It also checks exact
+subnormal/adjacent-decimal query endpoints through HTTP/Go/JSONL/Python rasterization
+to one touched pixel column. Ordinary Go verification does not require an installed
+ML runtime; its subprocess IPC tests independently enforce operation-aware errors
+and lossless decimal forwarding. New CLI subprocess regressions hold stdin open,
+send SIGTERM, and prove prompt exit/root reacquisition; input has its own30s deadline
+and is validated before database/root locking.
+
+**Historical ingestion verification on 2026-09-09:** main reran the full server
+command on that ingestion revision, including the RFC 6750 separator fix, and
 both independent reviewers reported PASS after all eight findings were resolved.
 See the [dated verification record](verification-2026-09-09.md) for main-supplied
 commands/results, contract isolation checks, snapshot hashes, container evidence
@@ -136,13 +171,13 @@ race-enabled PostgreSQL/CLI/conformance tests, vet, formatting, module checks an
 `contracts`, source revision
 **`5f5ac49e03b25f805f5a89f791727d0c3bd18642`**, and explicit
 **`unreleased-revision`** provenance. That commit contains the exact canonical bytes,
-but bundle 0.2.0 has not been released. Five SHA-256 entries identify the exact
-ingestion/retrieval schema and OpenAPI pairs plus `VERSION`. The manifest's
-`contract_version` is the bundle version;
+but bundle 0.2.0 has not been released.
+Five SHA-256 entries identify the exact ingestion/retrieval schema and OpenAPI pairs
+plus `VERSION`. The manifest's `contract_version` is the bundle version;
 `wire_versions:{ingestion:"0.1.0",retrieval:"0.2.0"}` distinguishes wire families.
-Embedded checks require `VERSION` to match the bundle manifest, and each wire family
-to match its separate Go constant. The maintenance refresh checks each schema/OpenAPI
-pair's version. `protocol.Version` stays 0.1.0 for Android ingestion.
+Embedded checks require `VERSION` to match the bundle manifest, and each wire
+family to match its separate Go constant. The maintenance refresh checks each
+schema/OpenAPI pair's version. `protocol.Version` stays 0.1.0 for Android ingestion.
 Builds/tests use only
 the consumer-local embedded snapshot, never sibling checkout content.
 
@@ -192,11 +227,16 @@ distributions include the full license and notices.
 
 ## Remaining gates
 
-Independent main verification and both reviews are complete for the working tree
-recorded above. Hosted CI has not run: no push/PR was requested. Before merge, satisfy
-the required PR/CI gates and verify the latest applicable revision. Subsequent source
-changes require applicable checks/review to be rerun; this dated evidence does not
-automatically cover them. Container and isolated-component evidence retains the
-specific scope and limitations in the dated record.
+The dated full local verification and all three independent reviews cover the earlier
+uncommitted retrieval source in the
+[main record](retrieval-main-verification-2026-09-10.md); they predate this
+provenance follow-up. The snapshot now pins canonical contract commit
+`5f5ac49e03b25f805f5a89f791727d0c3bd18642`, which contains the exact bytes but
+is unreleased. Hosted CI has not run. `origin/main` advanced separately
+to `407a5855fb9628dcc2d2f2ce88e90b2611d7d824`. Required delivery/CI gates remain;
+later source changes require
+applicable verification rather than inheriting this evidence. Isolated execution
+used provisioned locked dependencies, not a fresh offline installation. The Go-only
+container and native-host ML runs establish different runtime boundaries.
 No physical power-loss, encrypted-volume attestation, restored-backup, Android sync,
 device, throughput/large-root benchmark or production shared-service evidence exists.

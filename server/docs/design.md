@@ -5,8 +5,11 @@ Status: The broader foundation remains proposed under
 ingestion slice** now implements Go 1.26.4, PostgreSQL 15, TLS pairing/auth,
 contract 0.1.0 manifests/originals/receipts, RLS, filesystem recovery and initial
 pending jobs. See the executable [README](../README.md), [storage boundary](storage.md)
-and [quality gates](quality.md) for current behavior/evidence. Python inference,
-models, retrieval, leases and subsequent stages remain recommendations.
+and [quality gates](quality.md) for current behavior/evidence. An additional
+[bounded retrieval experiment](retrieval.md) now implements offline Python SigLIP2,
+full/overlap embeddings, generation-qualified leases, exact cosine over PostgreSQL
+real arrays, and candidate history with explicit clocks. The broader subsequent
+pipelines, ANN scaling and identity/tracking remain recommendations.
 
 ## Product Role and Baseline
 

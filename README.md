@@ -6,7 +6,8 @@ MemoTrace is a local-first visual archive for finding everyday objects and
 recovering the context of past events. The product goal is for an Android phone
 to record images and a home server to store originals, build search indexes, and
 retrieve supporting episodes. Optional cloud vision-language analysis is part of
-the future design; search and analysis are not implemented yet.
+the future design. Bounded local image/text retrieval and candidate history now
+have an executable experimental baseline.
 
 ## Status
 
@@ -15,20 +16,49 @@ JPEG capture, durable local storage, Russian controls, local tests, coverage gat
 and executable CI orchestration. Independent review, hosted CI and reference-device
 verification remain separate gates; implementation is not hardware evidence.
 
-The first [Go ingestion server](server/README.md) and
-[contract 0.1.0](contracts/README.md) are executable, **unreleased** development
+The [Go ingestion and experimental retrieval server](server/README.md) and
+[contract bundle 0.2.0](contracts/README.md) are executable, **unreleased** development
 components. The server provides TLS-only local-CLI enrollment, archive-scoped
 device credentials, immutable metadata registration, exact JPEG upload/read and
 stable historical receipts using PostgreSQL 15 and a private Linux data root.
-Contract validation and server verification commands are wired in
-[ingestion CI](.github/README.md#ingestion-contracts-and-server); independent review,
-main-agent verification and hosted results remain separate gates.
+The bundle preserves ingestion wire **0.1.0** and adds retrieval wire **0.2.0**.
+Contract, Go and Python ML verification commands are wired in
+[ingestion CI](.github/README.md#ingestion-contracts-and-server); local verification
+and hosted results are recorded separately.
 
-Each committed original creates one **pending** processing job; no ML consumer,
-Python inference, search or cloud integration exists. Android synchronization,
-speech and advanced device interactions remain future work. Pairing currently
-uses a manually transported CLI payload, with no QR UI or Android enrollment flow.
-There is no published API release or supported client/server combination yet.
+The [retrieval experiment](server/docs/retrieval.md) adds persistent indexing jobs,
+image/text search and candidate history through local CLI and authenticated HTTPS.
+It uses **exact cosine**, bounded to **5000 assets per archive and 50000 stored
+regions per generation**. The optional offline [Python SigLIP2 worker](server/ml/README.md)
+compares full-frame indexing with full-frame plus overlapping crops. Historical
+pre-hardening measurements evaluated model candidates but did not establish a current
+or final-best-model selection. Crop matches and history are candidates, not learned
+stable object identity or tracking.
+
+The [dated verification report](server/docs/retrieval-main-verification-2026-09-10.md)
+records pre-hardening component checks and genuine Base384 Go/PostgreSQL CLI/TLS evidence;
+the linked [everyday-object evaluation](server/benchmarks/everyday-object-evaluation-2026-09-10.md)
+records historical thread/model comparisons and a 100-image Base384 language/data
+experiment. The changed source requires fresh v3 acquisition and a live model/data
+rerun. Hosted CI, PR/merge and deployment gates remain pending; these results do not
+identify a new commit on `main` or a release.
+
+The [historical 48-image pilot](server/benchmarks/openimages-pilot-2026-09-09.md)
+and [review-v2 builder rerun](server/benchmarks/openimages-pilot-review-v2-2026-09-09.md)
+retain their recorded fingerprints. Primary text means use three classes with both
+positive and negative judgments in those historical records. The historical 100-image
+everyday-object evaluation had six primary-eligible classes; unknown labels remain
+unknown rather than becoming negatives.
+Open Images has unknown observation times: no chronology or first/last sightings
+are fabricated. Ego4D access and temporal-quality evaluation remain pending.
+
+Indexing is an explicit offline operator command, with the service stopped; there
+is no automatic online indexing scheduler. Ingestion receipts and initial pending
+jobs retain their original meaning. The Docker image is **Go-only**; optional
+Python/model deployment needs separate provisioning. Cloud integration, Android
+synchronization, speech and advanced device interactions remain future work.
+Pairing uses a manually transported CLI payload, with no QR UI or Android enrollment
+flow. There is no published API release or supported client/server combination yet.
 
 The initial reference device is a dedicated Samsung Galaxy A33 running Android
 16 / One UI 8, with continued access to its existing applications. The reference
@@ -57,7 +87,9 @@ cross-component verification, not component implementation details.
 - [Architecture and extraction rules](docs/architecture/README.md)
 - [Accepted repository-boundary decision](docs/decisions/0001-component-boundaries.md)
 - [Accepted ingestion implementation direction](docs/decisions/0006-ingestion-v0-1.md)
+- [Accepted bounded retrieval experiment](docs/decisions/0007-object-retrieval.md)
 - [Server setup and verification](server/README.md) and [contract checks](contracts/README.md#quality-command)
+- [Retrieval setup](server/docs/retrieval.md), [ML checks/model identity](server/ml/README.md), and [explicit public-data pilot commands](server/benchmarks/README.md#repeat-the-public-data-experiment)
 - [Recorder interaction requirements](docs/ux/README.md)
 - [Contribution guidelines](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
@@ -70,12 +102,17 @@ device behavior is not presented as an implemented or verified feature.
 ## Privacy
 
 Do not commit personal recordings, document images, database dumps, credentials,
-signing keys, or downloaded model weights. Use synthetic or explicitly approved
-public fixtures. Runtime archives and backups belong outside the source tree.
+signing keys, or downloaded model weights. Use synthetic or explicitly redistributable
+fixtures with provenance. Downloaded public images, annotations, attribution and
+raw experiment reports also stay outside Git; runtime archives and backups belong
+outside the source tree.
 
-The ingestion slice trusts the local operator. Encrypted disks, coherent encrypted
+The server trusts the local operator. Encrypted disks, coherent encrypted
 backups and protected recovery keys are operator-provisioned, not supplied or
-attested by the application. Historical receipts do not prove current original
+attested by the application. Encryption deployment is explicitly deferred for the
+current **public Open Images/synthetic-only experiments**. This does not authorize
+unencrypted private capture; private deployment still requires operator-provisioned
+protection and verified recovery. Historical receipts do not prove current original
 availability, ML completion, backup or permission to evict phone data; `/healthz`
 reports process liveness. See [security boundaries](SECURITY.md) and
 [server storage/recovery limits](server/docs/storage.md).

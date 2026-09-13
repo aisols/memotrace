@@ -89,7 +89,8 @@ SQL. No restored-backup or production rollback evidence is currently claimed.
 The receipt's integrity label remains exactly `sha256-byte-length-jpeg-header`.
 The legacy pending jobs retain their original meaning. Experimental inference uses
 separate generation-qualified `index_jobs`, bounded leases/retries and atomic region
-completion. Neither full decode nor inference is part of the ingestion receipt boundary.
+completion, documented in [retrieval](retrieval.md#persistence-and-worker-boundary).
+Neither full decode nor inference is part of the ingestion receipt boundary.
 
 ## Filesystem assumptions and recovery
 

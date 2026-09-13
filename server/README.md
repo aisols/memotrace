@@ -1,9 +1,12 @@
-# MemoTrace ingestion server
+# MemoTrace ingestion and experimental retrieval server
 
 Working, **unreleased** first ingestion slice: Go **1.26.4**, PostgreSQL **15**,
-private Linux filesystem originals, TLS-only CLI/server, and contract **0.1.0**.
+private Linux filesystem originals, TLS-only CLI/server, and ingestion wire **0.1.0**.
 Original bytes, immutable metadata, and one initial **pending** processing job are
-persisted. Inference, search, queue consumers and phone eviction are later work.
+persisted. The bounded experimental retrieval slice adds dataset/frame assets,
+persistent indexing leases, exact-cosine search/history and an optional genuine
+offline Python model worker. Retrieval wire is **0.2.0**; ingestion stays **0.1.0**.
+See [retrieval setup and semantics](docs/retrieval.md). Phone eviction remains later work.
 
 ## Independent build and verification
 
@@ -23,6 +26,17 @@ existing container/database. The locally inspected PostgreSQL-15 image is pinned
 `postgres@sha256:74e110c41804365e3915fcc09d5e7a1eff50161aaa94d5da0e58e0cd75ae509c`.
 No host psql, pgvector, private fixtures or cloud credentials are needed.
 See [quality gates](docs/quality.md).
+
+The [2026-09-10 main verification record](docs/retrieval-main-verification-2026-09-10.md)
+is historical pre-hardening evidence for required component gates and genuine Base384
+Go/PostgreSQL CLI/TLS execution. The linked
+[everyday-object evaluation](benchmarks/everyday-object-evaluation-2026-09-10.md)
+records historical thread/model comparisons and a 100-image Base384 language/data
+run. Current evidence requires fresh v3 acquisition and a live model/data rerun. The
+[2026-09-09 record](docs/retrieval-main-verification-2026-09-09.md) is
+historical Base224 evidence only. The retrieval implementation is committed on this
+feature branch but remains unmerged and unreleased; hosted CI, PR/merge and deployment
+are separate pending gates.
 
 ## Database provisioning
 
@@ -63,14 +77,15 @@ dedicated database; do not log them or pass secrets in command arguments.
 /tmp/memotrace create-archive
 ```
 
-Archive creation emits `owner_id` and `archive_id` JSON. Migration is transactionally
-advisory-lock serialized and repeatable at version 2. It upgrades an existing version-1
-database while preserving the original migration, metadata, JPEGs, receipts and pending
-legacy jobs. Unsupported versions fail. Stop the service for migration. Role creation
-and passwords remain privileged local PostgreSQL operations. The migration deadline
-defaults to one hour; set `--migration-timeout 0` only for an operator-supervised
-migration with no deadline. Follow the coherent backup, verified-restore and
-forward-only rollback procedure in [storage](docs/storage.md).
+Archive creation emits `owner_id` and `archive_id` JSON. Migration is transactional,
+advisory-lock serialized and repeatable at version 2. It transactionally upgrades an
+existing version-1 database, preserving the original v1 migration, metadata, JPEGs,
+receipts and pending legacy jobs. Unsupported versions fail. Stop the service for
+migration and experimental offline import/index/CLI search. Role creation/passwords
+remain privileged local PostgreSQL operations.
+The migration deadline defaults to one hour; set `--migration-timeout 0` only for
+an operator-supervised migration with no deadline. Follow the coherent backup,
+verified-restore and forward-only rollback procedure in [storage](docs/storage.md).
 
 ## TLS and trusted invitation bootstrap
 
@@ -137,6 +152,9 @@ and re-enrollment. Certificate renewal/rotation requires trusted re-bootstrap.
 | `PUT /v1/archives/{archive_id}/frames/{frame_id}/original` | Full JPEG verification/publication and stable receipt |
 | `GET .../{frame_id}/receipt` | Historical durable receipt, including lost ACK recovery |
 | `GET .../{frame_id}/original` | Exact verified bytes or fail-closed integrity error |
+| `POST /v1/archives/{archive_id}/search` | Bounded max-region-per-asset cosine candidates in one configured generation |
+| `POST /v1/archives/{archive_id}/history` | Candidate observations in an explicitly selected clock; unknown times stay unknown |
+| `GET /v1/archives/{archive_id}/search/assets/{asset_id}/original` | Exact verified frame or private dataset JPEG |
 
 Other `/v1` operations require `Authorization: Bearer DEVICE_TOKEN`. Other archives
 are 404; missing/invalid/revoked credentials are 401. Authorized devices in the same
@@ -180,6 +198,10 @@ private `/data` owned by UID 10001 and read-only `/tls` with a readable private 
 Provide the runtime DSN through secure deployment configuration. For container
 networking explicitly add `--listen 0.0.0.0:8443` to `serve`; the loopback default
 also applies inside containers. Compose/assembly remains deployment-owned.
+This Docker image contains the independently built Go service, **not Python,
+model weights or ML dependencies**. Ingestion-only service needs none of those.
+For enabled retrieval, provision the [optional local worker](ml/README.md) separately
+in the trusted service runtime; a combined Python/model container release is not provided.
 
 Receipts mean historical durable commit under declared Linux/filesystem/PG settings,
 not ML completion, perpetual availability, backup proof or phone-eviction permission.
@@ -187,6 +209,8 @@ Original reads verify current bytes; historical receipts survive later corruptio
 Revocation is rechecked after upload streaming; authorized in-flight downloads may finish.
 
 At-rest protection relies on **operator-provisioned encrypted volumes/backups**.
+The current retrieval experiment explicitly defers encryption deployment and uses
+only public Open Images and generated synthetic data, with artifacts outside Git.
 The application does not implement E2EE, attest encryption or protect against the
 trusted root/database operator. Back up encryption recovery keys and certificate
 keys separately and securely; resetting credentials cannot recover lost encryption
@@ -203,6 +227,11 @@ power-loss, restored-backup and production shared-service readiness remain unpro
 component checks and explicit maintenance generators. Earlier reserved `src/`,
 `tests/`, `migrations/` directories are retained; real Go tests are colocated and SQL
 is embedded. Broader pipelines remain proposed in [design](docs/design.md).
+`retrieval` owns query/numeric/geometry/ranking/history domain rules; `strictjson`
+preserves decimal request/IPC numbers; `inference` owns bounded JSONL subprocesses;
+`search` orchestrates import/index/query against `postgres` and `archive`. `ml/`
+owns offline model/preprocessing and autonomous Python checks; `benchmarks/` owns
+explicit public-dataset evaluation. No sibling component imports are used.
 
 Original material is **AGPL-3.0-only**. The complete [LICENSE](LICENSE) and
 [third-party notices](THIRD_PARTY_NOTICES.md) accompany standalone/container builds.
