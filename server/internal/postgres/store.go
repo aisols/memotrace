@@ -18,6 +18,9 @@ import (
 //go:embed migration.sql
 var migration string
 
+//go:embed migration_v2.sql
+var migrationV2 string
+
 type Store struct{ Pool *pgxpool.Pool }
 type Scope struct{ OwnerID, ArchiveID, DeviceID string }
 type Frame struct {
@@ -84,8 +87,14 @@ func (s *Store) Validate(ctx context.Context) error {
 	if err := s.Pool.QueryRow(ctx, "SELECT version FROM mt.schema_version").Scan(&version); err != nil {
 		return err
 	}
-	if version != 1 {
+	if version != 2 {
 		return errors.New("unsupported database version")
+	}
+	if err := s.Pool.QueryRow(ctx, `SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='mt' AND c.relname IN ('assets','index_generations','index_jobs','regions') AND c.relrowsecurity`).Scan(&protected); err != nil {
+		return err
+	}
+	if protected != 4 {
+		return errors.New("required retrieval RLS is missing")
 	}
 	for _, setting := range []string{"fsync", "full_page_writes", "synchronous_commit"} {
 		var value string
@@ -113,6 +122,9 @@ func Migrate(ctx context.Context, dsn, runtimeRole string) error {
 		return err
 	}
 	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, "SET LOCAL synchronous_commit=on"); err != nil {
+		return err
+	}
 	if _, err = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(630282933)"); err != nil {
 		return err
 	}
@@ -131,14 +143,17 @@ func Migrate(ctx context.Context, dsn, runtimeRole string) error {
 		if _, err = tx.Exec(ctx, migration); err != nil {
 			return err
 		}
-	} else {
-		var v int
-		if err = tx.QueryRow(ctx, "SELECT version FROM mt.schema_version").Scan(&v); err != nil {
+	}
+	var v int
+	if err = tx.QueryRow(ctx, "SELECT version FROM mt.schema_version").Scan(&v); err != nil {
+		return err
+	}
+	if v == 1 {
+		if _, err = tx.Exec(ctx, migrationV2); err != nil {
 			return err
 		}
-		if v != 1 {
-			return errors.New("unsupported database version")
-		}
+	} else if v != 2 {
+		return errors.New("unsupported database version")
 	}
 	r := pgx.Identifier{runtimeRole}.Sanitize()
 	for _, q := range []string{
@@ -146,6 +161,9 @@ func Migrate(ctx context.Context, dsn, runtimeRole string) error {
 		"GRANT SELECT ON mt.schema_version,mt.owners,mt.archives,mt.frames,mt.jobs TO " + r,
 		"GRANT INSERT ON mt.frames,mt.jobs TO " + r,
 		"GRANT UPDATE(committed_at) ON mt.frames TO " + r,
+		"GRANT SELECT,INSERT ON mt.assets,mt.index_generations TO " + r,
+		"GRANT SELECT,INSERT,UPDATE ON mt.index_jobs TO " + r,
+		"GRANT SELECT,INSERT,DELETE ON mt.regions TO " + r,
 		"GRANT EXECUTE ON FUNCTION mt.authenticate(text),mt.redeem(text,uuid,text,text),mt.recovery_owners(),mt.recovery_archive_owner(uuid) TO " + r,
 	} {
 		if _, err = tx.Exec(ctx, q); err != nil {

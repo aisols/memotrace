@@ -17,6 +17,7 @@ const MaxAssets = 5000
 const MaxVectors = 50000
 const MaxDimension = 4096
 const MaxRegions = 64
+const MaxDatasetIdentityBytes = 1024
 
 type Box [4]float64
 
@@ -35,6 +36,9 @@ func Hash(s string) bool {
 func Text(s string, max int) bool {
 	n := utf8.RuneCountInString(s)
 	return utf8.ValidString(s) && n > 0 && n <= max && !strings.ContainsRune(s, 0)
+}
+func DatasetIdentityValid(name, version, item string) bool {
+	return Text(name, 256) && Text(version, 256) && Text(item, 256) && len(name)+len(version)+len(item) <= MaxDatasetIdentityBytes
 }
 func Time(p *int64) bool { return p == nil || *p >= 0 && *p <= protocol.MaxTime }
 
@@ -200,6 +204,17 @@ func (d Description) Valid() bool {
 }
 func (d Description) Generation(mode string) string {
 	return protocol.Hash([]byte(d.ModelFingerprint + ":" + d.Policies[mode]))
+}
+func (d Description) Equal(other Description) bool {
+	if d.ModelFingerprint != other.ModelFingerprint || d.Dimension != other.Dimension || d.ModelID != other.ModelID || d.ModelRevision != other.ModelRevision || d.InputResolution != other.InputResolution || d.PreprocessingVersion != other.PreprocessingVersion || len(d.Policies) != len(other.Policies) {
+		return false
+	}
+	for mode, fingerprint := range d.Policies {
+		if other.Policies[mode] != fingerprint {
+			return false
+		}
+	}
+	return true
 }
 
 type Vector struct {

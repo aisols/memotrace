@@ -46,6 +46,7 @@ func run(args []string) error {
 	ttl := f.Duration("ttl", 10*time.Minute, "invitation lifetime, whole seconds 1..600")
 	listen := f.String("listen", "127.0.0.1:8443", "TLS bind address")
 	root := f.String("data-root", "", "existing absolute private data-root directory")
+	migrationTimeout := f.Duration("migration-timeout", defaultMigrationTimeout, "migration deadline (0 disables the deadline)")
 	if err := f.Parse(args[1:]); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -55,16 +56,22 @@ func run(args []string) error {
 	if f.NArg() != 0 {
 		return errors.New("unexpected arguments")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 	adminDSN := os.Getenv("MEMOTRACE_ADMIN_DSN")
 	output := func(v any) error { return json.NewEncoder(os.Stdout).Encode(v) }
-	switch args[0] {
-	case "migrate":
+	if args[0] == "migrate" {
+		ctx, cancel, err := migrationContext(context.Background(), *migrationTimeout)
+		if err != nil {
+			return err
+		}
+		defer cancel()
 		if adminDSN == "" {
 			return errors.New("admin DSN required")
 		}
 		return postgres.Migrate(ctx, adminDSN, *role)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	switch args[0] {
 	case "serve":
 		return serve(os.Getenv("MEMOTRACE_DSN"), *root, *listen, *cert, *key)
 	case "create-archive", "invite", "revoke-device":
@@ -179,7 +186,23 @@ func serve(dsn, root, listen, cert, key string) error {
 	if err = db.Recover(startup, files.Recover); err != nil {
 		return err
 	}
-	unknown, stages, err := files.Audit(func(a, f string) (bool, error) { return db.Known(startup, a, f) })
+	unknown, stages, err := files.Audit(func(a, f string) (bool, error) { return db.Known(startup, a, f) }, func(a, id string) (bool, error) {
+		tx, _, e := db.BeginAccess(startup, postgres.Access{ArchiveID: a, Operator: true}, false)
+		if e != nil {
+			var pe *protocol.Error
+			if errors.As(e, &pe) && pe.Code == "not_found" {
+				return false, nil
+			}
+			return false, e
+		}
+		defer tx.Rollback(startup)
+		asset, e := postgres.AssetByID(startup, tx, a, id)
+		var pe *protocol.Error
+		if errors.As(e, &pe) && pe.Code == "not_found" {
+			return false, nil
+		}
+		return e == nil && asset.Hit.SourceKind == "dataset", e
+	})
 	if err != nil {
 		return err
 	}

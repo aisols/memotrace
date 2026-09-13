@@ -185,3 +185,49 @@ func TestAuditPreservesUnknownAndAbandonedStage(t *testing.T) {
 		t.Fatal("unknown entry deleted", err)
 	}
 }
+
+func TestDatasetPublicationFaultsAndArchiveIsolation(t *testing.T) {
+	for _, point := range []string{"write", "file_sync", "publish", "directory_sync"} {
+		t.Run(point, func(t *testing.T) {
+			root := t.TempDir()
+			if err := os.Chmod(root, 0700); err != nil {
+				t.Fatal(err)
+			}
+			fs, err := Open(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer fs.Close()
+			b, _ := fixture(t)
+			archiveID, assetID := protocol.NewID(), protocol.NewID()
+			failure := func() error { return syscall.ENOSPC }
+			switch point {
+			case "write":
+				fs.Faults.BeforeWrite = failure
+			case "file_sync":
+				fs.Faults.FileSync = failure
+			case "publish":
+				fs.Faults.Publish = failure
+			case "directory_sync":
+				fs.Faults.DirectorySync = failure
+			}
+			if err = fs.PublishDataset(archiveID, assetID, protocol.Hash(b), b); !errors.Is(err, syscall.ENOSPC) {
+				t.Fatal("dataset publication fault was not returned", err)
+			}
+			if _, err = fs.ReadDataset(archiveID, assetID, protocol.Hash(b), int64(len(b))); (err == nil) != (point == "directory_sync") {
+				t.Fatal("dataset publication boundary changed", err)
+			}
+			fs.Faults = Faults{}
+			if err = fs.PublishDataset(archiveID, assetID, protocol.Hash(b), b); err != nil {
+				t.Fatal("dataset publication did not recover", err)
+			}
+			got, err := fs.ReadDataset(archiveID, assetID, protocol.Hash(b), int64(len(b)))
+			if err != nil || !bytes.Equal(got, b) {
+				t.Fatal("dataset bytes changed", err)
+			}
+			if _, err = fs.ReadDataset(protocol.NewID(), assetID, protocol.Hash(b), int64(len(b))); err == nil {
+				t.Fatal("dataset artifact crossed archive namespace")
+			}
+		})
+	}
+}

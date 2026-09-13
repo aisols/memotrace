@@ -143,3 +143,33 @@ func TestImageResultRejectsUnsupportedIndexingModes(t *testing.T) {
 		}
 	}
 }
+
+func TestDescriptionExactEquality(t *testing.T) {
+	base := Description{ModelFingerprint: strings.Repeat("a", 64), Dimension: 2, ModelID: "synthetic-test-only", ModelRevision: "1", InputResolution: 224, PreprocessingVersion: "1", Policies: map[string]string{"full": strings.Repeat("b", 64), "overlap": strings.Repeat("c", 64)}}
+	clone := func() Description {
+		d := base
+		d.Policies = map[string]string{"full": base.Policies["full"], "overlap": base.Policies["overlap"]}
+		return d
+	}
+	if !base.Equal(clone()) {
+		t.Fatal("equal descriptions differ")
+	}
+	mutations := []func(*Description){
+		func(d *Description) { d.ModelFingerprint = strings.Repeat("d", 64) },
+		func(d *Description) { d.Dimension++ },
+		func(d *Description) { d.ModelID += "-changed" },
+		func(d *Description) { d.ModelRevision += "-changed" },
+		func(d *Description) { d.InputResolution = 384 },
+		func(d *Description) { d.PreprocessingVersion += "-changed" },
+		func(d *Description) { d.Policies["full"] = strings.Repeat("d", 64) },
+		func(d *Description) { d.Policies["overlap"] = strings.Repeat("d", 64) },
+		func(d *Description) { d.Policies["extra"] = strings.Repeat("d", 64) },
+	}
+	for i, mutate := range mutations {
+		d := clone()
+		mutate(&d)
+		if base.Equal(d) || d.Equal(base) {
+			t.Fatal("description mutation compared equal", i)
+		}
+	}
+}

@@ -59,14 +59,18 @@ Only the disposable loopback tests use `sslmode=disable`. DSNs must select this
 dedicated database; do not log them or pass secrets in command arguments.
 
 ```sh
-/tmp/memotrace migrate --runtime-role memotrace_runtime
+/tmp/memotrace migrate --runtime-role memotrace_runtime --migration-timeout 1h
 /tmp/memotrace create-archive
 ```
 
-Archive creation emits `owner_id` and `archive_id` JSON. Migration is transactional,
-advisory-lock serialized, repeatable at version 1, and fails on unsupported versions.
-This unreleased initial migration is not an upgrade path for independently modified
-schemas. Role creation/passwords remain privileged local PostgreSQL operations.
+Archive creation emits `owner_id` and `archive_id` JSON. Migration is transactionally
+advisory-lock serialized and repeatable at version 2. It upgrades an existing version-1
+database while preserving the original migration, metadata, JPEGs, receipts and pending
+legacy jobs. Unsupported versions fail. Stop the service for migration. Role creation
+and passwords remain privileged local PostgreSQL operations. The migration deadline
+defaults to one hour; set `--migration-timeout 0` only for an operator-supervised
+migration with no deadline. Follow the coherent backup, verified-restore and
+forward-only rollback procedure in [storage](docs/storage.md).
 
 ## TLS and trusted invitation bootstrap
 

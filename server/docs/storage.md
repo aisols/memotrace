@@ -1,16 +1,19 @@
-# Ingestion persistence and security boundary
+# Server persistence and security boundary
 
-Implemented subset, contract 0.1.0; Linux only. Local root/operator and database
+Implemented ingestion wire 0.1.0 and experimental retrieval wire 0.2.0; Linux only. Local root/operator and database
 administrators are trusted. This is not encryption attestation or shared-host isolation.
 
 ## SQL ownership, privileges and RLS
 
-The `mt` schema and version-1 migration are owned by the local migration/admin role.
+The `mt` schema and migrations are owned by the local migration/admin role. The
+original `migration.sql` remains byte-identical; `migration_v2.sql` transactionally
+upgrades a populated v1 database and backfills searchable committed-frame assets.
 `owners`, `archives`, `frames`, `jobs` have default-deny RLS keyed by
 `current_setting('mt.owner_id', true)`. Runtime content operations use transaction-local
 `set_config(..., true)`, disappearing on commit/rollback; no session-scoped pool state.
 Startup rejects inherited table/schema ownership and privileged roles, requires RLS
-on all four content tables and requires PostgreSQL `fsync`, `full_page_writes` and
+on all eight content tables (including `assets`, `index_generations`, `index_jobs`,
+`regions`) and requires PostgreSQL `fsync`, `full_page_writes` and
 `synchronous_commit` on. Every runtime connection explicitly enables synchronous commit.
 
 Runtime gets SELECT on content/version, INSERT on frames/jobs, UPDATE only on
@@ -25,7 +28,14 @@ no dynamic SQL cross that boundary:
 - `redeem(hash,new_id,new_hash,name)`: locks/consumes an unexpired invitation and
   inserts its device atomically, returning scope.
 - `recovery_owners()` / `recovery_archive_owner(archive)`: startup scope identities,
-  then ordinary RLS-scoped transactions for reconciliation.
+  then ordinary RLS-scoped transactions for reconciliation and trusted local
+  retrieval commands. These capabilities are never selected by HTTP request input.
+
+The new tables additionally grant runtime SELECT/INSERT on assets/generations,
+SELECT/INSERT/UPDATE on index jobs, and SELECT/INSERT/DELETE on regions. Assets and
+generation metadata cannot be updated by runtime. Composite owner/archive foreign
+keys and transaction-local RLS apply to every new row. The new frame-asset trigger
+runs with invoker privileges and preserves actual wall/session-qualified times.
 
 PUBLIC has no schema/table/function privileges. RLS is intentionally not FORCEd
 against the administrative owner: local CLI/definer functions need declared admin
@@ -33,6 +43,24 @@ and bootstrap access. Runtime must never inherit that role. Runtime SQL credenti
 are a trusted application boundary: an attacker holding them can invoke bootstrap
 functions and set scope. RLS defends missing/mis-scoped queries, not a compromised
 application/database credential or trusted administrator.
+
+## Forward migration and rollback
+
+Version 2 is forward-only; there is no down-migration procedure. Before migration,
+stop every service and local command that can write frames, datasets or indexes.
+While writers remain stopped, take one coherent backup of both PostgreSQL and the
+archive root. Restore that backup into a separate isolated environment and verify
+the restored database and archived originals there before changing production.
+
+Run `memotrace migrate` only after that restore check. Its transaction enables
+`synchronous_commit`, serializes migrations, and blocks frame writers across the v1
+backfill and trigger installation. `--migration-timeout` defaults to one hour, may
+be increased for a populated v1 database, and accepts `0` for no deadline under
+operator supervision. Keep writers stopped until migration and post-migration
+checks complete. The previous binary rejects schema version 2, so binary rollback
+alone is not supported. Rollback means stopping all v2 writers and restoring the
+coherent pre-migration database and archive backup together, not running reverse
+SQL. No restored-backup or production rollback evidence is currently claimed.
 
 ## Durable commit sequence
 
@@ -58,8 +86,10 @@ application/database credential or trusted administrator.
    serialize the receipt. Unlink stage during cleanup; a crash can leave a harmless
    extra hard link, preserved/reported on startup.
 
-There is no worker, lease executor, Redis, inference, full decode or fake completion.
-The receipt's integrity label is exactly `sha256-byte-length-jpeg-header`.
+The receipt's integrity label remains exactly `sha256-byte-length-jpeg-header`.
+The legacy pending jobs retain their original meaning. Experimental inference uses
+separate generation-qualified `index_jobs`, bounded leases/retries and atomic region
+completion. Neither full decode nor inference is part of the ingestion receipt boundary.
 
 ## Filesystem assumptions and recovery
 
