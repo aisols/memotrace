@@ -102,14 +102,16 @@ identical explicitly verified artifacts are retained. Fixed `.partial` paths are
 never followed. Unpinned pre-existing JPEGs are not accepted as downloaded data.
 Open Images JPEG decoding and EXIF eligibility are validated in the downloader-owned
 stage **before publication**. The pinned official image metadata supplies
-`OriginalSize`, base64 `OriginalMD5`, and `Title`; every body must match the official
-size and MD5 before publication. Selection identity additionally retains the resulting
-SHA-256 and length, so changed bytes cannot reuse a dataset version. The current v3
-profile requires a receipt-bound `attribution.json` with exactly one structurally
-validated license/author/title/URL entry per selected image. Missing or drifted
-attribution and all older roots fail closed. Rejected bodies leave no image-directory artifact;
-only the exclusive stage is removed. A failed candidate followed by 48 valid images
-therefore produces a subset that immediately passes provenance verification/resume.
+`OriginalSize`, base64 `OriginalMD5`, and `Title`. The size and MD5 identify the original
+Flickr content, not the resized CVDF JPEG. The actual CVDF artifact is bounded and
+decoded before publication; its source, SHA-256 and byte length are retained separately
+in the manifest, selection identity and attribution download record. Changed CVDF bytes
+therefore cannot reuse a dataset version. The current v3 profile requires a receipt-bound
+`attribution.json` with exactly one structurally validated license/author/title/URL entry
+per selected image. Missing or drifted attribution and all older roots fail closed.
+Rejected bodies leave no image-directory artifact; only the exclusive stage is removed.
+A failed candidate followed by 48 valid images therefore produces a subset that
+immediately passes provenance verification/resume.
 
 Inference accepts a local manifest only when it exactly equals one of the three
 packaged manifests, then verifies the exact inventory and every file. Unknown IDs,

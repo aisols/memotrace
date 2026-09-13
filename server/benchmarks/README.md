@@ -133,7 +133,8 @@ dropped to improve the macro result.
 
 Only metadata-declared CC BY 2.0 images with known **zero dataset rotation** and
 identity JPEG EXIF orientation enter this initial pilot. This explicitly scoped
-filter preserves the original CVDF JPEG and official box coordinate agreement.
+filter preserves the published CVDF JPEG unchanged and maintains official box
+coordinate agreement.
 Open Images documents why dataset rotation and EXIF must not be conflated in its
 [rotation announcement](https://storage.googleapis.com/openimages/web/2018-05-17-rotation-information.html).
 The general worker handles all EXIF orientations; this dataset adapter does not
@@ -143,9 +144,11 @@ Open Images annotations are attributed to Google LLC under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); image licenses are
 declared per source as [CC BY 2.0](https://creativecommons.org/licenses/by/2.0/).
 `attribution.json` retains declared license, author, author-profile, original and
-landing URLs externally. License status is based on the official metadata, not a
-claim of a new live audit of every Flickr page. Images/attribution are not
-redistributed in this repository. See the dataset's
+landing URLs externally. Its `original_size` and `original_md5` fields are official
+metadata for the original Flickr content; the nested `download` source, SHA-256 and
+byte length identify the actual resized CVDF artifact. License status is based on the
+official metadata, not a claim of a new live audit of every Flickr page.
+Images/attribution are not redistributed in this repository. See the dataset's
 [license statement](https://storage.googleapis.com/openimages/web/factsfigures_v7.html#licenses).
 
 ### Index input versus ground truth
@@ -181,7 +184,8 @@ records the dataset, selection and ground-truth hashes in its report.
 
 Resume requires a **completed trusted local `acquisition.json` receipt** whose
 manifest, ground-truth and selection hashes verify, followed by verification of
-every manifest JPEG's SHA-256/length and the pinned source metadata. Existing
+every manifest JPEG's actual CVDF SHA-256/length, the matching attribution download
+record, and the pinned source metadata. Existing
 unreceipted JPEGs, changed valid JPEGs, receipt/manifest drift, image-directory
 symlinks and unrecognized extra images fail before metadata can be rewritten.
 A successful completed resume reuses the existing files and receipt unchanged.

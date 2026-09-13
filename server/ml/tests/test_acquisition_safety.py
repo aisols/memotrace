@@ -13,18 +13,20 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from memotrace_ml import public_download
+from memotrace_ml import openimages, public_download
 from memotrace_ml.acquire import download
 from memotrace_ml.artifacts import ensure_directory, entries, read_bytes
 from memotrace_ml.common import (
     JSON,
     file_digest,
     fingerprint,
+    list_value,
     object_value,
     read_json,
     write_json,
 )
 from memotrace_ml.dataset import Item, load_items
+from memotrace_ml.images import MAX_IMAGE_BYTES
 from memotrace_ml.openimages import (
     BUCKET,
     CLASS_PROFILE,
@@ -555,7 +557,7 @@ def test_download_checks_size_hash_and_no_clobber(
 
 
 @pytest.mark.parametrize("mismatch", ["size", "md5"])
-def test_download_rejects_wrong_official_image_size_or_md5(
+def test_download_rejects_wrong_expected_size_or_md5(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mismatch: str
 ) -> None:
     body = jpeg()
@@ -571,7 +573,7 @@ def test_download_rejects_wrong_official_image_size_or_md5(
     )
     with pytest.raises(ValueError, match="length|MD5"):
         download(
-            "https://open-images-dataset.s3.amazonaws.com/validation/test.jpg",
+            "https://huggingface.co/test",
             tmp_path / "image.jpg",
             1024 * 1024,
             expected_length=expected_length,
@@ -648,16 +650,30 @@ def jpeg(color: str = "red") -> bytes:
 
 
 def completed_dataset(
-    root: Path, monkeypatch: pytest.MonkeyPatch, *, old_profile: bool = False
+    root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    old_profile: bool = False,
+    actual_count: int = 48,
+    requested_count: int = 48,
 ) -> dict[str, JSON]:
     ensure_directory(root / "images")
     ensure_directory(root / "metadata")
     items: list[Item] = []
-    for index in range(48):
+    for index in range(actual_count):
         identity = f"{index:016x}"
         path = root / "images" / f"{identity}.jpg"
         path.write_bytes(jpeg())
         items.append(Item(identity, "images/" + path.name, file_digest(path), path.stat().st_size))
+    original_content = {
+        item.id: (
+            item.byte_length + 10_000,
+            hashlib.md5(
+                ("synthetic original source " + item.id).encode(), usedforsecurity=False
+            ).hexdigest(),
+        )
+        for item in items
+    }
     hashes: dict[str, str] = {}
     metadata: dict[str, JSON] = {}
     for name, suffix in METADATA.items():
@@ -669,19 +685,17 @@ def completed_dataset(
     profile = CLASS_PROFILE[:5] if old_profile else CLASS_PROFILE
     selection: dict[str, JSON] = {
         "version": "openimages-tools-pilot-v1" if old_profile else SELECTION_VERSION,
-        "actual_count": 48,
-        "requested_count": 48,
-        "missing_count": 0,
+        "actual_count": actual_count,
+        "requested_count": requested_count,
+        "missing_count": requested_count - actual_count,
         "selected_ids": [item.id for item in items],
         "selected_content": [
             {
                 "id": item.id,
                 "sha256": item.sha256,
                 "byte_length": item.byte_length,
-                "original_size": item.byte_length,
-                "original_md5": hashlib.md5(
-                    (root / item.path).read_bytes(), usedforsecurity=False
-                ).hexdigest(),
+                "original_size": original_content[item.id][0],
+                "original_md5": original_content[item.id][1],
             }
             for item in items
         ],
@@ -726,16 +740,14 @@ def completed_dataset(
             "original_url": "https://example.invalid/image/" + item.id,
             "landing_url": "https://example.invalid/landing/" + item.id,
             "rotation": "0",
-            "original_size": item.byte_length,
-            "original_md5": hashlib.md5(
-                (root / item.path).read_bytes(), usedforsecurity=False
-            ).hexdigest(),
+            "original_size": original_content[item.id][0],
+            "original_md5": original_content[item.id][1],
         }
         for item in items
     }
     write_json(root / "attribution.json", attribution)
     receipt: dict[str, JSON] = {
-        "count": 48,
+        "count": actual_count,
         "manifest_sha256": file_digest(root / "manifest.json"),
         "ground_truth_sha256": file_digest(root / "ground-truth.json"),
         "selection_sha256": file_digest(root / "selection.json"),
@@ -858,7 +870,16 @@ def test_completed_receipted_dataset_resumes_without_rewriting(
     assert {name: (root / name).read_bytes() for name in before} == before
 
 
-@pytest.mark.parametrize("mismatch", ["missing", "receipt", "entry", "title"])
+def test_incomplete_receipted_dataset_cannot_resume(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "data"
+    completed_dataset(root, monkeypatch, actual_count=47, requested_count=48)
+    with pytest.raises(ValueError, match="incomplete or inconsistent acquisition"):
+        prepare(root, 48)
+
+
+@pytest.mark.parametrize("mismatch", ["missing", "receipt", "entry", "title", "download"])
 def test_current_profile_requires_exact_complete_attribution(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mismatch: str
 ) -> None:
@@ -877,6 +898,9 @@ def test_current_profile_requires_exact_complete_attribution(
         attribution = read_json(attribution_path)
         if mismatch == "entry":
             attribution.pop("0000000000000000")
+        elif mismatch == "download":
+            entry = object_value(attribution["0000000000000000"])
+            object_value(entry["download"])["byte_length"] = 1
         else:
             object_value(attribution["0000000000000000"])["title"] = ""
         attribution_path.unlink()
@@ -889,7 +913,7 @@ def test_current_profile_requires_exact_complete_attribution(
         verified_acquisition(root)
 
 
-def test_attribution_entry_is_one_per_item_and_contains_supplied_title(
+def test_attribution_distinguishes_original_metadata_from_download(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = tmp_path / "data"
@@ -897,7 +921,44 @@ def test_attribution_entry_is_one_per_item_and_contains_supplied_title(
     _, items = load_items(root / "manifest.json")
     attribution = read_json(root / "attribution.json")
     validate_attribution(attribution, items)
-    assert object_value(attribution[items[0].id])["title"] == "Synthetic title " + items[0].id
+    entry = object_value(attribution[items[0].id])
+    actual = object_value(entry["download"])
+    assert entry["title"] == "Synthetic title " + items[0].id
+    assert entry["original_size"] != actual["byte_length"]
+    assert (
+        entry["original_md5"]
+        != hashlib.md5((root / items[0].path).read_bytes(), usedforsecurity=False).hexdigest()
+    )
+
+
+def test_incomplete_cli_receipt_exits_nonzero_and_retains_diagnostic(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    receipt: dict[str, JSON] = {"count": 0}
+
+    def incomplete(root: Path, count: int) -> dict[str, JSON]:
+        assert root == tmp_path and count == 48
+        write_json(root / "acquisition.json", receipt)
+        return receipt
+
+    monkeypatch.setattr("memotrace_ml.openimages.prepare", incomplete)
+    with pytest.raises(SystemExit, match="requested subset incomplete") as raised:
+        openimages.main(["--data-dir", str(tmp_path), "--count", "48"])
+    assert raised.value.code != 0
+    assert read_json(tmp_path / "acquisition.json") == receipt
+
+
+def test_cli_rejects_unverified_complete_receipt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("memotrace_ml.openimages.prepare", lambda root, count: {"count": count})
+
+    def reject(root: Path) -> tuple[dict[str, JSON], dict[str, JSON], list[Item]]:
+        raise ValueError("synthetic verification failure")
+
+    monkeypatch.setattr("memotrace_ml.openimages.verified_acquisition", reject)
+    with pytest.raises(ValueError, match="synthetic verification failure"):
+        openimages.main(["--data-dir", str(tmp_path), "--count", "48"])
 
 
 def test_dataset_version_identity_changes_when_selected_bytes_change() -> None:
@@ -943,7 +1004,7 @@ def test_unreceipted_valid_jpeg_never_gets_official_provenance(tmp_path: Path) -
 
 
 @pytest.mark.parametrize("rejection", ["invalid-body", "exif-rotation"])
-def test_invalid_first_download_then_48_valid_images_publish_a_resumable_subset(
+def test_large_originals_with_small_valid_cvdf_images_publish_a_resumable_subset(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     rejection: str,
@@ -966,6 +1027,15 @@ def test_invalid_first_download_then_48_valid_images_publish_a_resumable_subset(
         rejected = buffer.getvalue()
     image_bodies = {identity: valid for identity in identities}
     image_bodies[identities[0]] = rejected
+    original_sizes = {
+        identity: MAX_IMAGE_BYTES + index + 1 for index, identity in enumerate(identities)
+    }
+    original_md5s = {
+        identity: hashlib.md5(
+            ("synthetic original source " + identity).encode(), usedforsecurity=False
+        ).digest()
+        for identity in identities
+    }
     metadata = {
         "classes.csv": csv_bytes([[value, name] for name, value in CLASSES.items()]),
         "labels.csv": csv_bytes(
@@ -1018,10 +1088,8 @@ def test_invalid_first_download_then_48_valid_images_publish_a_resumable_subset(
                         "https://example.invalid/author",
                         "https://example.invalid/image",
                         "https://example.invalid/landing",
-                        str(len(image_bodies[identity])),
-                        base64.b64encode(
-                            hashlib.md5(image_bodies[identity], usedforsecurity=False).digest()
-                        ).decode("ascii"),
+                        str(original_sizes[identity]),
+                        base64.b64encode(original_md5s[identity]).decode("ascii"),
                     ]
                     for identity in identities
                 ],
@@ -1053,6 +1121,7 @@ def test_invalid_first_download_then_48_valid_images_publish_a_resumable_subset(
     assert selection["version"] == SELECTION_VERSION
     assert selection["class_profile"] == class_profile()
     assert set(object_value(selection["classes"])) == {name for name, _ in CLASS_PROFILE}
+    assert "size" not in object_value(selection["rejected_metadata"])
     ground_truth = object_value(read_json(tmp_path / "ground-truth.json")["classes"])
     assert set(ground_truth) == {mid for _, mid in CLASS_PROFILE}
     assert all(object_value(ground_truth[mid])["name"] == name for name, mid in CLASS_PROFILE)
@@ -1062,8 +1131,26 @@ def test_invalid_first_download_then_48_valid_images_publish_a_resumable_subset(
             "reason": "download_decode_or_orientation_failed",
         }
     ]
+    first_selected = identities[1]
+    first_content = object_value(list_value(selection["selected_content"])[0])
+    first_attribution = object_value(read_json(tmp_path / "attribution.json")[first_selected])
+    first_download = object_value(first_attribution["download"])
+    assert first_content == {
+        "id": first_selected,
+        "sha256": hashlib.sha256(valid).hexdigest(),
+        "byte_length": len(valid),
+        "original_size": original_sizes[first_selected],
+        "original_md5": original_md5s[first_selected].hex(),
+    }
+    assert first_download["byte_length"] == len(valid)
+    assert original_sizes[first_selected] > MAX_IMAGE_BYTES > len(valid)
+    assert first_attribution["original_size"] == original_sizes[first_selected]
+    assert (
+        first_attribution["original_md5"] != hashlib.md5(valid, usedforsecurity=False).hexdigest()
+    )
     assert verified_acquisition(tmp_path)[0] == receipt
     assert prepare(tmp_path, 48) == receipt
+    openimages.main(["--data-dir", str(tmp_path), "--count", "48"])
     unknown = tmp_path / "images" / "unrecognized.jpg"
     unknown.write_bytes(b"preexisting unknown sentinel")
     with pytest.raises(ValueError, match="unverified image"):

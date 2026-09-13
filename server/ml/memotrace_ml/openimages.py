@@ -7,7 +7,7 @@ import csv
 import io
 import re
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -182,7 +182,7 @@ def validate_attribution(attribution: dict[str, JSON], items: list[Item]) -> Non
             or entry["rotation"] not in {"0", "0.0"}
             or isinstance(size, bool)
             or not isinstance(size, int)
-            or size != item.byte_length
+            or not 0 < size <= 2**63 - 1
             or not isinstance(md5, str)
             or re.fullmatch(r"[0-9a-f]{32}", md5) is None
         ):
@@ -350,7 +350,6 @@ def prepare(root: Path, count: int) -> dict[str, JSON]:
         "missing_metadata": 0,
         "license": 0,
         "rotation": 0,
-        "size": 0,
         "attribution": 0,
     }
     eligible: set[str] = set()
@@ -367,8 +366,6 @@ def prepare(root: Path, count: int) -> dict[str, JSON]:
             rejected["license"] += 1
         elif image_info["Rotation"] not in {"0", "0.0"}:
             rejected["rotation"] += 1
-        elif original_size > MAX_IMAGE_BYTES:
-            rejected["size"] += 1
         elif not image_info["Author"] or not image_info["Title"]:
             rejected["attribution"] += 1
         else:
@@ -392,13 +389,12 @@ def prepare(root: Path, count: int) -> dict[str, JSON]:
         target = image_root / f"{image_id}.jpg"
         try:
             original_size, original_md5 = official_content[image_id]
+            # OriginalSize/OriginalMD5 identify the Flickr source, not this resized derivative.
             downloaded = download(
                 IMAGE_BUCKET + image_id + ".jpg",
                 target,
                 MAX_IMAGE_BYTES,
                 seconds=90,
-                expected_length=original_size,
-                expected_md5=original_md5,
                 validate=validate_cvdf_jpeg,
             )
             item = Item(
@@ -502,15 +498,16 @@ def prepare(root: Path, count: int) -> dict[str, JSON]:
     return receipt
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", required=True, type=Path)
     parser.add_argument("--count", type=int, default=48)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     receipt = prepare(args.data_dir, args.count)
     print(receipt)
     if receipt["count"] != args.count:
         raise SystemExit("requested subset incomplete; see acquisition.json and selection.json")
+    verified_acquisition(args.data_dir)
 
 
 if __name__ == "__main__":
