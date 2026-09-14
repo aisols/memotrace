@@ -17,6 +17,7 @@ go build -trimpath -o /tmp/memotrace ./cmd/memotrace
 go test ./...                 # unit/schema checks; PostgreSQL tests explicitly skip
 bash scripts/verify.sh       # required full verification, including PostgreSQL
 uv run --locked --project ml python scripts/verify_retrieval_eval.py
+uv run --locked --project ml python scripts/verify_object_search.py
 docker build -t memotrace-server:local .
 ```
 
@@ -30,20 +31,26 @@ See [quality gates](docs/quality.md).
 The [generic blind/staged evaluator](docs/retrieval-evaluation.md) is a separate,
 model-free offline diagnostic under `scripts/`, outside the packaged ML fingerprint and
 Go-only image. Its synthetic verifier neither needs nor establishes access to video data.
+The separate [object-search experiment](docs/object-search-experiment.md) runs verified
+Base224 coarse ranking, YOLOS proposals, independent DINO reranking and bounded
+proposal tracklets. Its verifier uses synthetic inputs without model/data downloads.
 
-The [2026-09-13 evidence record](benchmarks/everyday-object-evaluation-2026-09-13.md)
-records current-source fresh Open Images v3 model/data results and a safe aggregate-
-only private Ego4D diagnostic using authorized/licensed downloaded media and
-annotations. Canonical-media/timing and independently reproducible licensed
-acquisition provenance were not established, and official VQ2D evaluation was not
-run. It selects Base224 for continued visual-query work and keeps full indexing as
-the default, without a final-best-model claim.
+The [2026-09-14 evidence record](benchmarks/object-search-experiment-2026-09-14.md)
+binds the first usable offline experiment to actual uncommitted source hashes over
+`39b24e3`. It records public reranking, private cohort/tracklet diagnostics, and a
+passing 100-image genuine-model Go/PostgreSQL CLI/TLS smoke with independent exact-
+query checks. Production stays **Base224 full**, with no new history endpoints,
+database object associations or user confirmation. A narrow private PTS scan leaves
+canonical content/frame-zero and independently reproducible licensed acquisition
+unestablished; official VQ2D evaluation was not run.
+The [2026-09-13 evaluation](benchmarks/everyday-object-evaluation-2026-09-13.md)
+retains its historical model comparison and private diagnostic scope.
 The [2026-09-10 main verification](docs/retrieval-main-verification-2026-09-10.md)
 and linked [evaluation](benchmarks/everyday-object-evaluation-2026-09-10.md) remain
 historical pre-hardening Base384 evidence; the
 [2026-09-09 record](docs/retrieval-main-verification-2026-09-09.md) remains historical
-Base224 evidence. Current genuine-model Go/PostgreSQL CLI/TLS, hosted CI, PR/merge,
-release and deployment are separate pending gates.
+Base224 evidence. Server-source extraction passed with provisioned dependencies;
+hosted CI, PR/merge, release and deployment remain separate pending gates.
 
 ## Database provisioning
 
@@ -216,8 +223,9 @@ Original reads verify current bytes; historical receipts survive later corruptio
 Revocation is rechecked after upload streaming; authorized in-flight downloads may finish.
 
 At-rest protection relies on **operator-provisioned encrypted volumes/backups**.
-The current retrieval experiment explicitly defers encryption deployment and uses
-only public Open Images and generated synthetic data, with artifacts outside Git.
+Encryption deployment is deferred only for public Open Images and generated
+synthetic experiments. Private diagnostics do not extend that deferral to private
+capture; their inputs and reports also stay outside Git.
 The application does not implement E2EE, attest encryption or protect against the
 trusted root/database operator. Back up encryption recovery keys and certificate
 keys separately and securely; resetting credentials cannot recover lost encryption

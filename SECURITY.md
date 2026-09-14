@@ -86,17 +86,21 @@ remain applicable.
 Cosine scores and crop matches are candidates, not calibrated confidence, learned
 stable physical-object identity or tracking. History uses only explicit source
 clocks; Open Images has none and cannot establish chronology or first/last sightings.
-The [current evidence record](server/benchmarks/everyday-object-evaluation-2026-09-13.md)
-documents fresh receipt-bound Open Images v3 model/data results and a safe aggregate-
-only private selected-cohort Ego4D diagnostic. Authorized/licensed access and
-downloaded private media and annotations were used, but canonical-media/PTS/frame-zero
-and independently reproducible licensed acquisition provenance were not established;
-official VQ2D evaluation was not run. The private run provides no stable-instance/
-tracking, chronology, or population estimate.
+The [current evidence record](server/benchmarks/object-search-experiment-2026-09-14.md)
+documents the first usable [offline proposal/descriptor experiment](server/docs/object-search-experiment.md),
+safe public/private aggregates and a passing 100-image genuine-model Go CLI/TLS
+smoke with independent exact-query checks. Production stays Base224 full; no new
+history endpoints, database object associations or user confirmation are added.
+New models require explicit acquisition and verified local-only safetensors loading
+under separate byte/runtime identities. No new pip dependencies are added.
+Authorized/licensed private inputs were used; the narrow source-clip PTS scan leaves
+canonical content/frame-zero and independently reproducible licensed acquisition
+unestablished. Official VQ2D evaluation was not run. Bounded proposal tracklets do
+not establish stable identity, continuous presence or a population estimate.
 The [dated main-verification report](server/docs/retrieval-main-verification-2026-09-10.md)
 retains pre-hardening local checks and genuine-model Go/PostgreSQL CLI/HTTPS evidence.
-Current genuine-model Go CLI/TLS, hosted CI, PR/merge, release, deployment,
-Android/device and production gates remain pending. Local
+Server-source extraction passed with provisioned dependencies; hosted CI, PR/merge,
+release, deployment, Android/device and production gates remain pending. Local
 verification is not security certification.
 
 ## Reporting

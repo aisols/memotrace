@@ -41,7 +41,13 @@ Commands run in order:
    uv run --locked --project ml python scripts/verify_retrieval_eval.py
    ```
 
-5. From `server/`, the external smoke helper gate:
+5. From `server/`, the separate object-search experiment gate:
+
+   ```sh
+   uv run --locked --project ml python scripts/verify_object_search.py
+   ```
+
+6. From `server/`, the external smoke helper gate:
 
    ```sh
    uv run --locked --project ml ruff check --config ml/pyproject.toml scripts/retrieval-smoke.py scripts/test_retrieval_smoke.py
@@ -49,9 +55,9 @@ Commands run in order:
    uv run --locked --project ml pytest -c ml/pyproject.toml scripts/test_retrieval_smoke.py
    ```
 
-6. From `server/`:
+7. From `server/`:
    `MEMOTRACE_TEST_ML_PYTHON="$PWD/ml/.venv/bin/python" bash scripts/verify.sh`.
-7. From `server/`: `docker build -t memotrace-server:local .`.
+8. From `server/`: `docker build -t memotrace-server:local .`.
 
 The server verifier owns formatting checks (no gofmt mutation), module verification,
 vet, build, snapshot conformance, required PostgreSQL/race/fault tests and the
@@ -76,6 +82,13 @@ fingerprint or Go Docker image. Its gate uses only inline neutral synthetic case
 strict typing and Ruff, and enforces **100% statement coverage separately** for the pure
 planning/ranking core and post-ranking metrics module. Branch coverage is reported with
 no threshold. It reads no model, dataset, private input, or network resource.
+
+The [object-search experiment gate](../server/docs/quality.md#object-search-experiment-gate)
+checks its core, vision adapter, runner, tests and verifier with Ruff and strict
+mypy, plus synthetic tests without pretrained weights/data downloads. It enforces
+the independently approved **>=95% statement coverage for
+`scripts/object_search_core.py` alone**; branches are reported without a threshold.
+It uses existing locked dependencies and leaves the production ML identity unchanged.
 
 ML installation/verification precedes the Go verifier so the coordinated job can
 supply its actual locked interpreter through `MEMOTRACE_TEST_ML_PYTHON`. This makes
@@ -132,13 +145,16 @@ records pre-hardening 100-image, six-primary-class data/language/model evidence.
 [dated main-verification report](../server/docs/retrieval-main-verification-2026-09-10.md)
 records matching pre-hardening local component and genuine Base384 Go/PostgreSQL
 CLI/TLS evidence. The
-[current 2026-09-13 record](../server/benchmarks/everyday-object-evaluation-2026-09-13.md)
-adds fresh receipt-bound v3 checkpoint results and a safe aggregate-only private
-Ego4D diagnostic at source `3f99aa9`. Authorized/licensed downloaded media and
-annotations were used; canonical-media/timing and independently reproducible
-licensed acquisition provenance were not established, and official VQ2D evaluation
-was not run. Current genuine-model Go CLI/TLS, hosted CI, PR/merge, release,
-deployment, Android/device and production evidence remain pending.
+[2026-09-13 record](../server/benchmarks/everyday-object-evaluation-2026-09-13.md)
+retains its historical v3 checkpoint/private diagnostic scope. The
+[current 2026-09-14 record](../server/benchmarks/object-search-experiment-2026-09-14.md)
+binds uncommitted source hashes over `39b24e3`, the first usable offline proposal/
+descriptor experiment, public/private aggregates and a passing genuine-model
+100-image Go CLI/TLS smoke with independent exact-query matching. It records local
+gates and independent review, including the new 226-test core gate. A narrow private
+PTS scan does not establish canonical content/frame-zero or whole-cohort timing.
+Server-source extraction passed with provisioned dependencies; hosted CI, PR/merge,
+release, deployment, official VQ2D, Android/device and production gates remain pending.
 
 ## Action pins and evidence
 

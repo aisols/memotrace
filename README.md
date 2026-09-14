@@ -35,14 +35,18 @@ source-local model/data diagnostics select Base224 for continued visual-query wo
 and keep full indexing as the default; this is not a final-best-model choice. Crop
 matches and history are candidates, not learned stable object identity or tracking.
 
-The [current dated evaluation](server/benchmarks/everyday-object-evaluation-2026-09-13.md)
-records fresh receipt-bound Open Images v3 model/data results and a private selected-
-cohort Ego4D diagnostic at source commit `3f99aa9`, using only safe hashes and
-aggregates. The [2026-09-10 verification report](server/docs/retrieval-main-verification-2026-09-10.md)
+The [2026-09-14 evidence](server/benchmarks/object-search-experiment-2026-09-14.md)
+records the first usable [offline object-search experiment](server/docs/object-search-experiment.md),
+public proposal/descriptor reranking, private cohort/tracklet diagnostics, and the
+latest passing 100-image genuine-model Go/PostgreSQL CLI/TLS smoke with independent
+exact-query checks. New experiment sources are uncommitted over baseline `39b24e3`;
+the report binds their actual hashes. Production remains Base224 full, with no new
+history endpoints, database object associations or user-confirmation flow.
+The [2026-09-13 evaluation](server/benchmarks/everyday-object-evaluation-2026-09-13.md),
+[2026-09-10 verification report](server/docs/retrieval-main-verification-2026-09-10.md)
 and its linked [evaluation](server/benchmarks/everyday-object-evaluation-2026-09-10.md)
-remain historical pre-hardening evidence. Current genuine-model Go/PostgreSQL CLI/TLS,
-hosted CI, PR/merge, release and deployment gates remain pending; the new results do
-not identify a commit on `main` or a release.
+retain their historical scope. Server-source extraction passed with provisioned
+dependencies; hosted CI, PR/merge, release and deployment gates remain pending.
 
 The [historical 48-image pilot](server/benchmarks/openimages-pilot-2026-09-09.md)
 and [review-v2 builder rerun](server/benchmarks/openimages-pilot-review-v2-2026-09-09.md)
@@ -52,10 +56,11 @@ everyday-object evaluation had six primary-eligible classes; unknown labels rema
 unknown rather than becoming negatives.
 Open Images has unknown observation times: no chronology or first/last sightings
 are fabricated. Authorized/licensed Ego4D access and downloaded private media and
-annotations were used for the external diagnostic. Canonical-media/PTS/frame-zero
-and independently reproducible licensed acquisition provenance were not established,
-and official VQ2D evaluation was not run; there is no stable-instance, tracking or
-chronology claim.
+annotations were used for external diagnostics. The latest three-query sample has
+a checked source-clip PTS scan; canonical content/frame-zero and independently
+reproducible licensed acquisition remain unestablished. Official VQ2D evaluation
+was not run; bounded proposal tracklets do not establish stable identity or
+continuous presence.
 
 Indexing is an explicit offline operator command, with the service stopped; there
 is no automatic online indexing scheduler. Ingestion receipts and initial pending

@@ -6,14 +6,17 @@ There is no pgvector/ANN implementation or full-archive throughput claim. The
 optional [pinned offline SigLIP2 worker](../ml/README.md) supports the approved
 candidate set. Open Images acquisition/evaluation support is implemented, but no
 author-machine model or dataset path is assumed available. The
-[2026-09-13 evidence record](../benchmarks/everyday-object-evaluation-2026-09-13.md)
-documents current-source receipt-bound v3 model/data results and a private selected-
-cohort Ego4D diagnostic using only safe hashes and aggregates. Authorized/licensed
-access and downloaded private media and annotations were used, but canonical-media/
-PTS/frame-zero and independently reproducible licensed acquisition provenance were
-not established; official VQ2D evaluation was not run. Current genuine-model Go
-CLI/TLS, hosted delivery/deployment and production evidence remain pending.
-Encryption deployment is deferred for this public/synthetic-only experiment.
+[2026-09-14 evidence record](../benchmarks/object-search-experiment-2026-09-14.md)
+documents a passing 100-image genuine-model Go CLI/TLS smoke with independent exact-
+query matching, plus the first usable [offline object-search experiment](object-search-experiment.md)
+and public/private diagnostics. Actual source hashes bind uncommitted experiment
+work over `39b24e3`. Production remains **Base224 full**; the separate proposal/
+descriptor runner adds no history endpoint, database object association or user
+confirmation. Its narrow PTS scan leaves canonical content/frame-zero and whole-
+cohort timing unestablished; official VQ2D evaluation was not run. Server-source
+extraction passed with provisioned dependencies; hosted delivery/deployment and
+production gates remain pending.
+Encryption deployment is deferred only for public/synthetic experiments.
 
 ## Operating commands
 
@@ -132,9 +135,11 @@ TLS, issues/redeems a verified invitation, and queries/reads originals over HTTP
 The worker is the real offline Python model, with no synthetic production fallback.
 It downloads no dataset or model and calculates no retrieval-quality metrics. Use
 the operator-defined, pre-acquired and verified `$MODEL_DIR` and `$MANIFEST` paths
-from the setup above. Current Python model/data results are recorded separately, but
-current-source genuine-model Go CLI/TLS evidence is still pending and is not bundled
-with this checkout.
+from the setup above. The [latest smoke evidence](../benchmarks/object-search-experiment-2026-09-14.md#genuine-model-go-clitls-smoke)
+records 100 images, 100/668 full/overlap vectors, zero failures, passing CLI/HTTPS
+operations and 7/7 response schemas. Independent recomputation used the exact smoke
+texts, which differ from the historical benchmark. Raw evidence remains external;
+single-sample timings do not establish warm p95 or deployment readiness.
 
 ```sh
 mkdir -m 700 /tmp/opencode/memotrace-go-search-smoke

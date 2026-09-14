@@ -52,12 +52,21 @@ from physical-object identity and chronological history.
   identified evaluation proxy. Open Images has no observation chronology: history
   is unavailable, first/last bounds are null and candidates remain unsequenced.
   No Android capture metadata or public-data chronology is fabricated. A later
-  private selected-cohort Ego4D diagnostic informs cadence/staging experiments but
-  does not establish canonical media, source-video/PTS/frame-zero provenance, stable
-  identity, tracking, chronology, an official VQ2D score, or a population estimate.
+  private selected-cohort Ego4D diagnostic informs cadence/staging experiments.
+  The latest three-query proposal experiment includes a source-clip PTS scan, but
+  canonical content/frame-zero and whole-cohort timing remain unestablished.
+  Bounded proposal tracklets do not establish stable identity, continuous presence,
+  an official VQ2D score, or a population estimate.
   Authorized/licensed access and downloaded private media and annotations were used,
   but independently reproducible licensed acquisition provenance was not established
   and official VQ2D evaluation was not run.
+- **Separate offline object-search tooling:** the first usable experiment now
+  combines Base224 full-image semantic shortlisting, YOLOS-Tiny proposals and
+  independent DINOv2-small descriptor reranking with bounded proposal tracklets.
+  It has separate byte/numerical-runtime identities and leaves the production
+  Base224 full default and packaged identity unchanged. It adds no history endpoint,
+  database object association or user-confirmation flow. See the
+  [operational guide](../../server/docs/object-search-experiment.md).
 - **Contract families and autonomy:** unreleased bundle **0.2.0** contains frozen
   ingestion wire **0.1.0** and retrieval wire **0.2.0**. Preserve ingestion schema/
   OpenAPI bytes, responses and receipt meanings. Canonical definitions remain in
@@ -86,11 +95,14 @@ then-current genuine-model benchmark, worker smoke and Go/PostgreSQL CLI/TLS che
 This evidence identifies only its recorded source and artifacts/fingerprints, not
 the changed source, a new commit on `main`, a PR or a release. The
 [2026-09-13 evidence record](../../server/benchmarks/everyday-object-evaluation-2026-09-13.md)
-adds current-source fresh v3 checkpoint results and a safe aggregate-only private
-Ego4D diagnostic. It selects Base224 for visual-query work and full indexing as the
-default without a final-best-model or official VQ2D claim. Current genuine-model Go
-CLI/TLS, hosted CI, PR/merge, release, deployment, Android/device and production
-evidence remain pending.
+retains its historical v3 checkpoint comparison and private diagnostic. The
+[2026-09-14 follow-up](../../server/benchmarks/object-search-experiment-2026-09-14.md)
+binds actual uncommitted source hashes over `39b24e3`, public/private experiment
+results, a cohort-bound v7 repeat, and a passing 100-image genuine-model Go CLI/TLS
+smoke with independent exact-query matching. Base224 full remains the production
+default without a final-best-model or official VQ2D claim. Server-source extraction
+passed with provisioned dependencies; hosted CI, PR/merge, release, deployment,
+Android/device and production gates remain pending.
 The linked [everyday-object evaluation](../../server/benchmarks/everyday-object-evaluation-2026-09-10.md)
 records the staged prior-source thread matrix and three-checkpoint comparison, plus
 the historical pre-hardening final 100-image Base384 language/data evaluation.

@@ -6,22 +6,25 @@ the autonomous server Python package in [`../ml/`](../ml/README.md). Downloaded
 models, JPEGs, annotation contents, attribution and machine reports remain outside
 Git. All committed test images are generated synthetic fixtures.
 
-The [current 2026-09-13 evidence record](everyday-object-evaluation-2026-09-13.md)
-summarizes fresh receipt-bound Open Images v3 results across all three checkpoints
-and a safe aggregate-only private selected-cohort Ego4D diagnostic using authorized/
-licensed downloaded media and annotations. Canonical-media/timing and independently
-reproducible licensed acquisition provenance were not established, and official VQ2D
-evaluation was not run. It selects Base224 for continued visual-query work and full
-indexing as the default, not a final-best model. The
+The [current 2026-09-14 evidence record](object-search-experiment-2026-09-14.md)
+summarizes the first usable [offline proposal/descriptor experiment](../docs/object-search-experiment.md),
+public class-proxy reranking, a private v7 cohort-bound repeat and three-query
+proposal tracklets. It also records a passing 100-image genuine-model Go/PostgreSQL
+CLI/TLS smoke and independent exact-query matching. Source hashes bind uncommitted
+work over `39b24e3`; production remains Base224 full. No new history endpoints,
+database object associations or user confirmation are implemented.
+The [2026-09-13 evidence record](everyday-object-evaluation-2026-09-13.md) retains
+its historical v3 checkpoint comparison and private diagnostic scope. The
 [historical everyday-object evaluation](everyday-object-evaluation-2026-09-10.md)
 and [dated main verification](../docs/retrieval-main-verification-2026-09-10.md)
-retain their pre-hardening Base384 scope. Current genuine-model Go/PostgreSQL/CLI/TLS,
-hosted CI, delivery, deployment, Android/device, official VQ2D evaluation and
-production evidence remain pending. The
+retain their pre-hardening Base384 scope. Server-source extraction passed with
+provisioned dependencies; hosted CI, delivery, deployment, Android/device, official
+VQ2D evaluation and production evidence remain pending. The
 [2026-09-09 main report](../docs/retrieval-main-verification-2026-09-09.md) is
 historical evidence for its exact Base224-era source and identities.
 
-The benchmark allowlist is closed to these pinned candidates:
+The packaged SigLIP2 benchmark allowlist is closed to these pinned candidates;
+the separate object-search experiment's YOLOS/DINO pins are in its evidence record:
 
 | Checkpoint | Revision | Letterbox | Dimension | Parameters |
 | --- | --- | --- | --- | --- |
@@ -262,8 +265,9 @@ optimistic relative to deployment: unknowns can occupy real result slots, and a
 class with no verified negatives yields a trivial judged ranking. Always read
 judged/unknown counts alongside aggregate scores. These are neither official
 Open Images detection scores nor **Ego4D VQ** scores, instance identity, or history
-quality. The [current 2026-09-13 record](everyday-object-evaluation-2026-09-13.md)
-reports the fresh v3 results and separate private video diagnostic with those limits;
+quality. The [current 2026-09-14 record](object-search-experiment-2026-09-14.md)
+reports proposal/descriptor results with these limits; the
+[2026-09-13 record](everyday-object-evaluation-2026-09-13.md) retains its v3 comparison;
 the [historical 2026-09-10 evaluation](everyday-object-evaluation-2026-09-10.md)
 retains the identities measured at its pre-hardening source.
 The [2026-09-09 main report](../docs/retrieval-main-verification-2026-09-09.md) and
@@ -282,18 +286,21 @@ measurement. JSONL transport, Go persistence/search and DB time are separate gat
 
 Authorized/licensed Ego4D access was available and used, and downloaded private
 media and annotations were used for the external selected-cohort diagnostic summarized
-safely in the [2026-09-13 evidence record](everyday-object-evaluation-2026-09-13.md). No
+safely in the [2026-09-13 evidence record](everyday-object-evaluation-2026-09-13.md)
+and [2026-09-14 follow-up](object-search-experiment-2026-09-14.md). No
 gated data, credentials, private IDs, annotations, media, raw reports, licensed
-downloader, or dataset adapter is committed. Canonical-media/PTS/frame-zero and
-independently reproducible licensed acquisition provenance were not established;
-official [VQ2D evaluation](https://ego4d-data.org/docs/benchmarks/episodic-memory/)
+downloader, or dataset adapter is committed. The latest fixed three-query sample
+has a checked source-clip PTS scan, not whole-cohort timing evidence. Canonical
+content/frame-zero and independently reproducible licensed acquisition remain
+unestablished; official [VQ2D evaluation](https://ego4d-data.org/docs/benchmarks/episodic-memory/)
 was not run. The diagnostic does not establish stable instance identity, tracking,
 chronology or a population estimate. Future sampling must record source FPS/time
 base and actual frame PTS, including resampling, and apply the query cutoff before
 ranking. Frame number divided by a guessed FPS is not evidence. Open Images provides
 no temporal/cutoff or first/last-observed evidence.
 
-The [generic blind/staged evaluator](../docs/retrieval-evaluation.md) now supplies only
-model-free planning, ranking, and post-ranking metric primitives for a future licensed
-runner. It contains no dataset parser or private fixture and does not change any access,
-official-metric, tracking, or timestamp limitation above.
+The [generic blind/staged evaluator](../docs/retrieval-evaluation.md) supplies model-free
+planning, ranking and post-ranking metrics to an ignored private runner; its v7
+cohort binding is now implemented and repeated. The tracked evaluator contains no
+dataset parser or private fixture. The separate object-search runner's bounded
+proposal tracklets establish neither stable identity nor continuous presence.

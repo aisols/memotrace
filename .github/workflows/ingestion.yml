@@ -57,6 +57,10 @@ jobs:
         working-directory: server
         # External diagnostic tooling; synthetic and model/data/network-free.
         run: uv run --locked --project ml python scripts/verify_retrieval_eval.py
+      - name: Object Search Experiment, Pure Core Coverage, Strict Types, Lint, and Format
+        working-directory: server
+        # Synthetic real-core/vision computations; no model, dataset, or network acquisition.
+        run: uv run --locked --project ml python scripts/verify_object_search.py
       - name: External Retrieval Smoke Helper Tests, Lint, and Format
         working-directory: server
         # Kept outside the autonomous ml/ package because this helper orchestrates Go/Docker/TLS.

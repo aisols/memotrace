@@ -8,18 +8,20 @@ exact cutoff/history/source exclusion and actual CLI/TLS tests run in that same
 disposable-PG/race gate. The independently built ML component has its own
 [Python checks](../ml/README.md); those are separate from Go/model-free verification.
 See [retrieval commands](retrieval.md) and the
-[current source-local evidence](../benchmarks/everyday-object-evaluation-2026-09-13.md).
-At source `3f99aa9`, fresh Open Images v3 model/data evaluation and the local gates
-passed: protocol measured **94.4% (238/252)** and retrieval **95.2% (277/291)**
-against their separate 85% gates. ML's independently approved images statement gate
-is **>=95%**; verification measured **100% (114/114 statements)** and reported
-**100% (36/36 branches)**. The generic evaluator independently measured 100% of
-reachable statements and branches in both tracked files. Current genuine-model Go
-CLI/TLS, hosted CI, delivery/deployment, official VQ2D and production evidence remain
-pending. Authorized/licensed downloaded Ego4D media and annotations supported the
-private diagnostic, without reproducible acquisition/timing provenance. The
+[current source-local evidence](../benchmarks/object-search-experiment-2026-09-14.md).
+The report binds actual uncommitted experiment source hashes over `39b24e3`, records
+passing local component/Docker/parity gates, and documents a passing 100-image
+genuine-model Go CLI/TLS smoke, 7/7 response schemas and independent exact-query
+matching. The new object-search gate passed 226 tests and **612/636 = 96.23%** pure-
+core statements against its independently approved **>=95%** gate; **186/210 branches**
+are reported separately. ML's independently approved images statement gate remains
+**>=95%**. Server-source extraction passed with provisioned dependencies; hosted CI,
+delivery/deployment, official VQ2D and production gates remain pending. Private
+provenance and the narrow PTS scan's limitations are recorded with the evidence. The
+[2026-09-13 record](../benchmarks/everyday-object-evaluation-2026-09-13.md) and
 [dated main verification](retrieval-main-verification-2026-09-10.md)
-retains only its recorded pre-hardening CLI/TLS and benchmark scope. The
+retain their historical scope; the latter's CLI/TLS and benchmark evidence is
+pre-hardening. The
 [review-fix builder record](retrieval-review-verification-2026-09-09.md) and ingestion
 record below are also retained as historical evidence.
 
@@ -138,6 +140,26 @@ Post-ranking capture/distance uses a deterministic linear sweep bounded by accep
 aggregate candidates plus intervals, not their Cartesian product. These are complexity
 bounds and validation semantics, not measured runtime speedup claims. Sensitive
 evaluator, annotation, and result dataclasses use redacted default representations.
+
+## Object-search experiment gate
+
+The separate [offline experiment](object-search-experiment.md) has an executable
+component-local gate, also wired into ingestion CI. From `server/`, run:
+
+```sh
+uv run --locked --project ml python scripts/verify_object_search.py
+```
+
+It uses the existing locked ML dependencies, Ruff lint/format, strict mypy and
+synthetic core/vision/runner tests without pretrained weights or data acquisition.
+The independently approved **>=95% statement gate applies only to
+`scripts/object_search_core.py`**. Its deterministic shortlist, exclusion, geometry,
+association and coverage rules need direct boundary/adversarial checks because
+errors can misrepresent evidence. Branch coverage is reported without a threshold;
+neither branches nor other modules can offset missing core statements. The verifier
+rejects missing/empty/malformed coverage and checks the exact file membership.
+This experiment remains outside the production ML fingerprint and Go-only image;
+real-model quality and private timing/association evidence are separate checks.
 
 ## Pure/domain coverage gates
 
@@ -261,21 +283,28 @@ distributions include the full license and notices.
 
 ## Remaining gates
 
-The [2026-09-13 evidence record](../benchmarks/everyday-object-evaluation-2026-09-13.md)
-documents current-source local component, Docker, fresh v3 model/data and private
-diagnostic results plus independent review. It does not include a current genuine-
-model Go/PostgreSQL CLI/TLS run. The dated full verification in the
-[main record](retrieval-main-verification-2026-09-10.md) remains historical
-pre-hardening evidence. The snapshot pins canonical contract commit
+The [2026-09-14 evidence record](../benchmarks/object-search-experiment-2026-09-14.md)
+documents local component, Docker, parity, genuine-model Go/PostgreSQL CLI/TLS and
+public/private diagnostic results plus independent review. Its source inventory
+identifies uncommitted work, not a released artifact. Server-source extraction is
+complete: a server-only snapshot of cached/tracked plus intended untracked files
+passed the isolated 226-test object-search verifier (Ruff, strict mypy, 96.23% core
+statements), 231-test ML verifier and full Go PostgreSQL/race/decoder gate (protocol
+94.4%, retrieval 95.2%). Imported ML and all three object-search modules resolved
+inside the snapshot. The existing locked-dependency interpreter used `PYTHONPATH`
+set to the isolated ML/server roots; this was not a fresh venv or offline bootstrap.
+The [2026-09-13 record](../benchmarks/everyday-object-evaluation-2026-09-13.md) and
+dated full verification in the
+[main record](retrieval-main-verification-2026-09-10.md) retain their historical
+scope; the latter is pre-hardening evidence. The snapshot pins canonical contract commit
 `5f5ac49e03b25f805f5a89f791727d0c3bd18642`, which contains the exact bytes but
-is unreleased. Hosted CI has not run. `origin/main` advanced separately
-to `407a5855fb9628dcc2d2f2ce88e90b2611d7d824`. Required delivery/CI gates remain;
+is unreleased. No hosted result is claimed. Required delivery/CI gates remain;
 later source changes require
 applicable verification rather than inheriting this evidence. Isolated execution
 used provisioned locked dependencies, not a fresh offline installation. The Go-only
 container and native-host ML runs establish different runtime boundaries.
-No current genuine-model Go CLI/TLS, official VQ2D, physical power-loss, encrypted-
-volume attestation, restored-backup, Android sync/device, throughput/large-root,
+No official VQ2D, physical power-loss, encrypted-volume attestation,
+restored-backup, Android sync/device, throughput/large-root,
 deployment or production shared-service evidence exists. Authorized/licensed private
-input use is recorded separately from missing reproducible acquisition/timing
-provenance.
+input use and the narrow source-clip PTS check remain distinct from missing canonical
+content/frame-zero, whole-cohort timing and reproducible acquisition provenance.
