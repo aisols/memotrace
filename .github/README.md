@@ -119,8 +119,9 @@ the pinned
 model licenses,
 dataset provenance/attribution and actual model/policy fingerprints when recording
 evidence. Apply the [release licensing checks](../docs/licensing.md#release-and-extraction-checklist)
-to distributions. Builder pilot and CLI/HTTP results are not independent main-agent
-verification, a final-best-model decision, Ego4D quality or temporal-history evidence.
+to distributions. External pilot and CLI/HTTP results do not by themselves establish
+hosted CI, main-agent delivery verification, a final-best-model decision, official
+Ego4D quality, or temporal-history behavior.
 The [historical pilot](../server/benchmarks/openimages-pilot-2026-09-09.md) and
 [review-v2 builder rerun](../server/benchmarks/openimages-pilot-review-v2-2026-09-09.md)
 retain their specific revision/fingerprint evidence. The latter's primary text
@@ -130,7 +131,14 @@ are not negatives. The historical
 records pre-hardening 100-image, six-primary-class data/language/model evidence. The
 [dated main-verification report](../server/docs/retrieval-main-verification-2026-09-10.md)
 records matching pre-hardening local component and genuine Base384 Go/PostgreSQL
-CLI/TLS evidence. Fresh v3 acquisition and a live current-source rerun remain pending.
+CLI/TLS evidence. The
+[current 2026-09-13 record](../server/benchmarks/everyday-object-evaluation-2026-09-13.md)
+adds fresh receipt-bound v3 checkpoint results and a safe aggregate-only private
+Ego4D diagnostic at source `3f99aa9`. Authorized/licensed downloaded media and
+annotations were used; canonical-media/timing and independently reproducible
+licensed acquisition provenance were not established, and official VQ2D evaluation
+was not run. Current genuine-model Go CLI/TLS, hosted CI, PR/merge, release,
+deployment, Android/device and production evidence remain pending.
 
 ## Action pins and evidence
 
@@ -143,7 +151,7 @@ Action tag-to-commit pins were checked against the upstream GitHub API:
 | `astral-sh/setup-uv` | v7.0.0 | [eb1897b8dc4b5d5bfe39a428a8f2304605e0983c](https://github.com/astral-sh/setup-uv/commit/eb1897b8dc4b5d5bfe39a428a8f2304605e0983c) |
 | `actions/setup-go` | v6.0.0 | [44694675825211faa026b3c33043df3e48a5fa00](https://github.com/actions/setup-go/commit/44694675825211faa026b3c33043df3e48a5fa00) |
 
-Local main-agent verification is recorded above; no hosted run or merge is claimed.
+Current source-local verification is recorded above; no hosted run or merge is claimed.
 Subsequent implementation changes require applicable review and main-agent reruns;
 hosted CI and authorized PR/merge gates remain pending.
 Linux synthetic/fault tests do not establish physical power-loss, restored-backup,

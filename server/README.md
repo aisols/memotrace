@@ -31,16 +31,19 @@ The [generic blind/staged evaluator](docs/retrieval-evaluation.md) is a separate
 model-free offline diagnostic under `scripts/`, outside the packaged ML fingerprint and
 Go-only image. Its synthetic verifier neither needs nor establishes access to video data.
 
-The [2026-09-10 main verification record](docs/retrieval-main-verification-2026-09-10.md)
-is historical pre-hardening evidence for required component gates and genuine Base384
-Go/PostgreSQL CLI/TLS execution. The linked
-[everyday-object evaluation](benchmarks/everyday-object-evaluation-2026-09-10.md)
-records historical thread/model comparisons and a 100-image Base384 language/data
-run. Current evidence requires fresh v3 acquisition and a live model/data rerun. The
-[2026-09-09 record](docs/retrieval-main-verification-2026-09-09.md) is
-historical Base224 evidence only. The retrieval implementation is committed on this
-feature branch but remains unmerged and unreleased; hosted CI, PR/merge and deployment
-are separate pending gates.
+The [2026-09-13 evidence record](benchmarks/everyday-object-evaluation-2026-09-13.md)
+records current-source fresh Open Images v3 model/data results and a safe aggregate-
+only private Ego4D diagnostic using authorized/licensed downloaded media and
+annotations. Canonical-media/timing and independently reproducible licensed
+acquisition provenance were not established, and official VQ2D evaluation was not
+run. It selects Base224 for continued visual-query work and keeps full indexing as
+the default, without a final-best-model claim.
+The [2026-09-10 main verification](docs/retrieval-main-verification-2026-09-10.md)
+and linked [evaluation](benchmarks/everyday-object-evaluation-2026-09-10.md) remain
+historical pre-hardening Base384 evidence; the
+[2026-09-09 record](docs/retrieval-main-verification-2026-09-09.md) remains historical
+Base224 evidence. Current genuine-model Go/PostgreSQL CLI/TLS, hosted CI, PR/merge,
+release and deployment are separate pending gates.
 
 ## Database provisioning
 

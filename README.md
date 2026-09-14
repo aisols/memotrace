@@ -30,18 +30,19 @@ The [retrieval experiment](server/docs/retrieval.md) adds persistent indexing jo
 image/text search and candidate history through local CLI and authenticated HTTPS.
 It uses **exact cosine**, bounded to **5000 assets per archive and 50000 stored
 regions per generation**. The optional offline [Python SigLIP2 worker](server/ml/README.md)
-compares full-frame indexing with full-frame plus overlapping crops. Historical
-pre-hardening measurements evaluated model candidates but did not establish a current
-or final-best-model selection. Crop matches and history are candidates, not learned
-stable object identity or tracking.
+compares full-frame indexing with full-frame plus overlapping crops. Current
+source-local model/data diagnostics select Base224 for continued visual-query work
+and keep full indexing as the default; this is not a final-best-model choice. Crop
+matches and history are candidates, not learned stable object identity or tracking.
 
-The [dated verification report](server/docs/retrieval-main-verification-2026-09-10.md)
-records pre-hardening component checks and genuine Base384 Go/PostgreSQL CLI/TLS evidence;
-the linked [everyday-object evaluation](server/benchmarks/everyday-object-evaluation-2026-09-10.md)
-records historical thread/model comparisons and a 100-image Base384 language/data
-experiment. The changed source requires fresh v3 acquisition and a live model/data
-rerun. Hosted CI, PR/merge and deployment gates remain pending; these results do not
-identify a new commit on `main` or a release.
+The [current dated evaluation](server/benchmarks/everyday-object-evaluation-2026-09-13.md)
+records fresh receipt-bound Open Images v3 model/data results and a private selected-
+cohort Ego4D diagnostic at source commit `3f99aa9`, using only safe hashes and
+aggregates. The [2026-09-10 verification report](server/docs/retrieval-main-verification-2026-09-10.md)
+and its linked [evaluation](server/benchmarks/everyday-object-evaluation-2026-09-10.md)
+remain historical pre-hardening evidence. Current genuine-model Go/PostgreSQL CLI/TLS,
+hosted CI, PR/merge, release and deployment gates remain pending; the new results do
+not identify a commit on `main` or a release.
 
 The [historical 48-image pilot](server/benchmarks/openimages-pilot-2026-09-09.md)
 and [review-v2 builder rerun](server/benchmarks/openimages-pilot-review-v2-2026-09-09.md)
@@ -50,7 +51,11 @@ positive and negative judgments in those historical records. The historical 100-
 everyday-object evaluation had six primary-eligible classes; unknown labels remain
 unknown rather than becoming negatives.
 Open Images has unknown observation times: no chronology or first/last sightings
-are fabricated. Ego4D access and temporal-quality evaluation remain pending.
+are fabricated. Authorized/licensed Ego4D access and downloaded private media and
+annotations were used for the external diagnostic. Canonical-media/PTS/frame-zero
+and independently reproducible licensed acquisition provenance were not established,
+and official VQ2D evaluation was not run; there is no stable-instance, tracking or
+chronology claim.
 
 Indexing is an explicit offline operator command, with the service stopped; there
 is no automatic online indexing scheduler. Ingestion receipts and initial pending

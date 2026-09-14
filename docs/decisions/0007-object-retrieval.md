@@ -3,8 +3,9 @@
 Status: Accepted — bounded experimental implementation direction
 
 Decision recorded: 2026-09-09, under user direction to implement retrieval,
-candidate history and crop experiments, using Open Images while Ego4D access is
-pending. This accepts an **unreleased baseline**, not a final-best-model choice,
+candidate history and crop experiments using Open Images; authorized/licensed Ego4D
+access occurred only in a later external diagnostic. This accepts an
+**unreleased baseline**, not a final-best-model choice,
 security certification or verified production deployment. All independent-review
 findings must be resolved and applicable current-source checks rerun before delivery;
 hosted CI, PR/merge and deployment gates remain pending.
@@ -27,11 +28,12 @@ from physical-object identity and chronological history.
   Exceeding either scope fails before query filtering/ranking. There is no
   pgvector/ANN implementation or long-archive capacity claim.
 - **Optional offline inference:** the server-owned Python worker uses a closed set
-  of pinned SigLIP2 checkpoints. Historical pre-hardening evidence provisionally
-  selected `google/siglip2-base-patch16-384` as the practical text-retrieval
-  candidate. Fresh v3 live selection evidence for the hardened source is pending;
-  no current candidate selection is established. Compare full-frame letterboxing
-  with full-frame plus deterministic overlapping crops;
+  of pinned SigLIP2 checkpoints. Current source-local fresh v3 evidence selects
+  `google/siglip2-base-patch16-224` for continued visual-query work and keeps full
+  indexing as the default. This supersedes the historical provisional Base384 text-
+  retrieval choice for this scoped visual-query work, but is not a final-best-model
+  decision. Continue comparing full-frame letterboxing with full-frame plus
+  deterministic overlapping crops;
   crop boxes are coarse match regions, not learned detections. Go controls bounded
   JSONL subprocess lifecycle and jobs; inference owns no SQL transactions, job
   retries or archive deletion. Inference uses pre-acquired, verified artifacts,
@@ -49,9 +51,13 @@ from physical-object identity and chronological history.
   sees ground-truth labels/boxes; a ground-truth query crop is an explicitly
   identified evaluation proxy. Open Images has no observation chronology: history
   is unavailable, first/last bounds are null and candidates remain unsequenced.
-  No Android capture metadata or public-data chronology is fabricated. Ego4D
-  access, source-video/PTS provenance and official temporal-quality evaluation
-  remain pending; this pilot establishes no Ego4D score.
+  No Android capture metadata or public-data chronology is fabricated. A later
+  private selected-cohort Ego4D diagnostic informs cadence/staging experiments but
+  does not establish canonical media, source-video/PTS/frame-zero provenance, stable
+  identity, tracking, chronology, an official VQ2D score, or a population estimate.
+  Authorized/licensed access and downloaded private media and annotations were used,
+  but independently reproducible licensed acquisition provenance was not established
+  and official VQ2D evaluation was not run.
 - **Contract families and autonomy:** unreleased bundle **0.2.0** contains frozen
   ingestion wire **0.1.0** and retrieval wire **0.2.0**. Preserve ingestion schema/
   OpenAPI bytes, responses and receipt meanings. Canonical definitions remain in
@@ -78,8 +84,13 @@ The [dated main-verification report](../../server/docs/retrieval-main-verificati
 records historical pre-hardening local contract, Python and full Go checks, plus the
 then-current genuine-model benchmark, worker smoke and Go/PostgreSQL CLI/TLS checks.
 This evidence identifies only its recorded source and artifacts/fingerprints, not
-the changed source, a new commit on `main`, a PR or a release. Fresh v3 acquisition
-and a live model/data rerun remain pending, as do hosted CI, merge and deployment.
+the changed source, a new commit on `main`, a PR or a release. The
+[2026-09-13 evidence record](../../server/benchmarks/everyday-object-evaluation-2026-09-13.md)
+adds current-source fresh v3 checkpoint results and a safe aggregate-only private
+Ego4D diagnostic. It selects Base224 for visual-query work and full indexing as the
+default without a final-best-model or official VQ2D claim. Current genuine-model Go
+CLI/TLS, hosted CI, PR/merge, release, deployment, Android/device and production
+evidence remain pending.
 The linked [everyday-object evaluation](../../server/benchmarks/everyday-object-evaluation-2026-09-10.md)
 records the staged prior-source thread matrix and three-checkpoint comparison, plus
 the historical pre-hardening final 100-image Base384 language/data evaluation.

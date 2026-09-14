@@ -6,11 +6,18 @@ the autonomous server Python package in [`../ml/`](../ml/README.md). Downloaded
 models, JPEGs, annotation contents, attribution and machine reports remain outside
 Git. All committed test images are generated synthetic fixtures.
 
-The [historical everyday-object evaluation](everyday-object-evaluation-2026-09-10.md)
-consolidates pre-hardening thread, checkpoint and 100-image Base384 data/language
-measurements. The [dated main verification](../docs/retrieval-main-verification-2026-09-10.md)
-records matching pre-hardening local gates and genuine Go/PostgreSQL/CLI/TLS evidence.
-Current live evidence requires fresh v3 acquisition and a model/data rerun. The
+The [current 2026-09-13 evidence record](everyday-object-evaluation-2026-09-13.md)
+summarizes fresh receipt-bound Open Images v3 results across all three checkpoints
+and a safe aggregate-only private selected-cohort Ego4D diagnostic using authorized/
+licensed downloaded media and annotations. Canonical-media/timing and independently
+reproducible licensed acquisition provenance were not established, and official VQ2D
+evaluation was not run. It selects Base224 for continued visual-query work and full
+indexing as the default, not a final-best model. The
+[historical everyday-object evaluation](everyday-object-evaluation-2026-09-10.md)
+and [dated main verification](../docs/retrieval-main-verification-2026-09-10.md)
+retain their pre-hardening Base384 scope. Current genuine-model Go/PostgreSQL/CLI/TLS,
+hosted CI, delivery, deployment, Android/device, official VQ2D evaluation and
+production evidence remain pending. The
 [2026-09-09 main report](../docs/retrieval-main-verification-2026-09-09.md) is
 historical evidence for its exact Base224-era source and identities.
 
@@ -255,8 +262,10 @@ optimistic relative to deployment: unknowns can occupy real result slots, and a
 class with no verified negatives yields a trivial judged ranking. Always read
 judged/unknown counts alongside aggregate scores. These are neither official
 Open Images detection scores nor **Ego4D VQ** scores, instance identity, or history
-quality. The [historical 2026-09-10 evaluation](everyday-object-evaluation-2026-09-10.md)
-documents these limits and the identities measured at its pre-hardening source.
+quality. The [current 2026-09-13 record](everyday-object-evaluation-2026-09-13.md)
+reports the fresh v3 results and separate private video diagnostic with those limits;
+the [historical 2026-09-10 evaluation](everyday-object-evaluation-2026-09-10.md)
+retains the identities measured at its pre-hardening source.
 The [2026-09-09 main report](../docs/retrieval-main-verification-2026-09-09.md) and
 [preceding measured report](openimages-pilot-review-v2-2026-09-09.md) are historical.
 The
@@ -269,16 +278,20 @@ latencies, query/ranking durations, Linux peak RSS, and full query metrics. One
 fixed-order small-subset run is not sustained throughput or an overnight-capacity
 measurement. JSONL transport, Go persistence/search and DB time are separate gates.
 
-## Deferred video/history research
+## Deferred official video/history research
 
-[Ego4D access](https://ego4d-data.org/) is pending; no gated data, credentials,
-licensed downloader or fabricated video API is implemented. Its
-[visual queries task](https://ego4d-data.org/docs/benchmarks/episodic-memory/)
-needs source-video/frame provenance and official task evaluation before any
-Ego4D score claim. Future sampling must record source FPS/time base and actual
-frame PTS, including any resampling, and apply the query cutoff before ranking.
-Frame number divided by a guessed FPS is not evidence. Open Images provides no
-temporal/cutoff or first/last-observed evidence for this deferred work.
+Authorized/licensed Ego4D access was available and used, and downloaded private
+media and annotations were used for the external selected-cohort diagnostic summarized
+safely in the [2026-09-13 evidence record](everyday-object-evaluation-2026-09-13.md). No
+gated data, credentials, private IDs, annotations, media, raw reports, licensed
+downloader, or dataset adapter is committed. Canonical-media/PTS/frame-zero and
+independently reproducible licensed acquisition provenance were not established;
+official [VQ2D evaluation](https://ego4d-data.org/docs/benchmarks/episodic-memory/)
+was not run. The diagnostic does not establish stable instance identity, tracking,
+chronology or a population estimate. Future sampling must record source FPS/time
+base and actual frame PTS, including resampling, and apply the query cutoff before
+ranking. Frame number divided by a guessed FPS is not evidence. Open Images provides
+no temporal/cutoff or first/last-observed evidence.
 
 The [generic blind/staged evaluator](../docs/retrieval-evaluation.md) now supplies only
 model-free planning, ranking, and post-ranking metric primitives for a future licensed

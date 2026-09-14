@@ -8,13 +8,18 @@ exact cutoff/history/source exclusion and actual CLI/TLS tests run in that same
 disposable-PG/race gate. The independently built ML component has its own
 [Python checks](../ml/README.md); those are separate from Go/model-free verification.
 See [retrieval commands](retrieval.md) and the
-[dated main verification](retrieval-main-verification-2026-09-10.md). That report's
-local checks and genuine-model CLI/TLS/benchmark evidence apply only to its recorded
-pre-hardening source. Current live evidence requires fresh v3 acquisition and a
-model/data rerun. At the dated source, main measured protocol
-**94.4% (238/252)** and retrieval **91.8% (259/282)** against their separate 85% gates.
-ML's independently approved images statement gate is **>=95%**; main measured
-**100% (114/114 statements)** and reported **100% (36/36 branches)**. The
+[current source-local evidence](../benchmarks/everyday-object-evaluation-2026-09-13.md).
+At source `3f99aa9`, fresh Open Images v3 model/data evaluation and the local gates
+passed: protocol measured **94.4% (238/252)** and retrieval **95.2% (277/291)**
+against their separate 85% gates. ML's independently approved images statement gate
+is **>=95%**; verification measured **100% (114/114 statements)** and reported
+**100% (36/36 branches)**. The generic evaluator independently measured 100% of
+reachable statements and branches in both tracked files. Current genuine-model Go
+CLI/TLS, hosted CI, delivery/deployment, official VQ2D and production evidence remain
+pending. Authorized/licensed downloaded Ego4D media and annotations supported the
+private diagnostic, without reproducible acquisition/timing provenance. The
+[dated main verification](retrieval-main-verification-2026-09-10.md)
+retains only its recorded pre-hardening CLI/TLS and benchmark scope. The
 [review-fix builder record](retrieval-review-verification-2026-09-09.md) and ingestion
 record below are also retained as historical evidence.
 
@@ -256,10 +261,12 @@ distributions include the full license and notices.
 
 ## Remaining gates
 
-The dated full local verification and all three independent reviews cover the earlier
-uncommitted retrieval source in the
-[main record](retrieval-main-verification-2026-09-10.md); they predate this
-provenance follow-up. The snapshot now pins canonical contract commit
+The [2026-09-13 evidence record](../benchmarks/everyday-object-evaluation-2026-09-13.md)
+documents current-source local component, Docker, fresh v3 model/data and private
+diagnostic results plus independent review. It does not include a current genuine-
+model Go/PostgreSQL CLI/TLS run. The dated full verification in the
+[main record](retrieval-main-verification-2026-09-10.md) remains historical
+pre-hardening evidence. The snapshot pins canonical contract commit
 `5f5ac49e03b25f805f5a89f791727d0c3bd18642`, which contains the exact bytes but
 is unreleased. Hosted CI has not run. `origin/main` advanced separately
 to `407a5855fb9628dcc2d2f2ce88e90b2611d7d824`. Required delivery/CI gates remain;
@@ -267,5 +274,8 @@ later source changes require
 applicable verification rather than inheriting this evidence. Isolated execution
 used provisioned locked dependencies, not a fresh offline installation. The Go-only
 container and native-host ML runs establish different runtime boundaries.
-No physical power-loss, encrypted-volume attestation, restored-backup, Android sync,
-device, throughput/large-root benchmark or production shared-service evidence exists.
+No current genuine-model Go CLI/TLS, official VQ2D, physical power-loss, encrypted-
+volume attestation, restored-backup, Android sync/device, throughput/large-root,
+deployment or production shared-service evidence exists. Authorized/licensed private
+input use is recorded separately from missing reproducible acquisition/timing
+provenance.

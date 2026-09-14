@@ -86,13 +86,18 @@ remain applicable.
 Cosine scores and crop matches are candidates, not calibrated confidence, learned
 stable physical-object identity or tracking. History uses only explicit source
 clocks; Open Images has none and cannot establish chronology or first/last sightings.
-Ego4D access and temporal-quality evaluation are pending. The
-[dated main-verification report](server/docs/retrieval-main-verification-2026-09-10.md)
-records pre-hardening local checks, genuine-model public-data evaluation and
-Go/PostgreSQL CLI/HTTPS verification. Open Images
-retains null clocks and unavailable chronological history. Hosted CI, PR/merge and
-deployment gates remain pending; fresh v3 acquisition and a live current-source rerun
-are also pending. Historical local verification is not security certification.
+The [current evidence record](server/benchmarks/everyday-object-evaluation-2026-09-13.md)
+documents fresh receipt-bound Open Images v3 model/data results and a safe aggregate-
+only private selected-cohort Ego4D diagnostic. Authorized/licensed access and
+downloaded private media and annotations were used, but canonical-media/PTS/frame-zero
+and independently reproducible licensed acquisition provenance were not established;
+official VQ2D evaluation was not run. The private run provides no stable-instance/
+tracking, chronology, or population estimate.
+The [dated main-verification report](server/docs/retrieval-main-verification-2026-09-10.md)
+retains pre-hardening local checks and genuine-model Go/PostgreSQL CLI/HTTPS evidence.
+Current genuine-model Go CLI/TLS, hosted CI, PR/merge, release, deployment,
+Android/device and production gates remain pending. Local
+verification is not security certification.
 
 ## Reporting
 

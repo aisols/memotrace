@@ -308,11 +308,18 @@ generation = SHA256(UTF8(model_fingerprint + ":" + policy_fingerprint))
 Do not mix generations or reuse one when numerical runtime identity differs. This
 enforces separation across detected Python/native-wheel/libc/Torch/CPU environments;
 it is not a proof of bit-identical output on unmeasured microcode or kernel changes.
-The [historical everyday-object evaluation](../benchmarks/everyday-object-evaluation-2026-09-10.md)
-records pre-hardening 16x4 tuning, checkpoint comparison and a 100-image Base384 run.
-The [dated main verification](../docs/retrieval-main-verification-2026-09-10.md)
+The [current 2026-09-13 evidence](../benchmarks/everyday-object-evaluation-2026-09-13.md)
+records fresh receipt-bound v3 runs for all three checkpoints and selects Base224
+for continued visual-query work, with full indexing as the default. This scoped
+choice is not a final-best-model claim. The
+[historical everyday-object evaluation](../benchmarks/everyday-object-evaluation-2026-09-10.md)
+records pre-hardening 16x4 tuning, checkpoint comparison and a 100-image Base384 run;
+the [dated main verification](../docs/retrieval-main-verification-2026-09-10.md)
 records matching pre-hardening genuine Go/PostgreSQL/CLI/TLS execution and local
-gates. Current live evidence requires fresh v3 acquisition and a model/data rerun.
+gates. The current private diagnostic used authorized/licensed downloaded Ego4D
+media and annotations, but did not establish reproducible acquisition/timing
+provenance or run official VQ2D evaluation. Current genuine-model Go CLI/TLS remains
+pending.
 The [final P2 verification note](../benchmarks/final-p2-verification-2026-09-09.md)
 and [previous pilot](../benchmarks/openimages-pilot-review-v2-2026-09-09.md) are
 historical evidence only for their recorded source revision and Base224 identities.

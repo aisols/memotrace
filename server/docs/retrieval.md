@@ -5,9 +5,14 @@
 There is no pgvector/ANN implementation or full-archive throughput claim. The
 optional [pinned offline SigLIP2 worker](../ml/README.md) supports the approved
 candidate set. Open Images acquisition/evaluation support is implemented, but no
-author-machine model or dataset path is assumed available. Fresh receipt-bound v3
-evidence and a live model/data run are unavailable pending explicit acquisition;
-Ego4D access and temporal-quality evaluation are also pending.
+author-machine model or dataset path is assumed available. The
+[2026-09-13 evidence record](../benchmarks/everyday-object-evaluation-2026-09-13.md)
+documents current-source receipt-bound v3 model/data results and a private selected-
+cohort Ego4D diagnostic using only safe hashes and aggregates. Authorized/licensed
+access and downloaded private media and annotations were used, but canonical-media/
+PTS/frame-zero and independently reproducible licensed acquisition provenance were
+not established; official VQ2D evaluation was not run. Current genuine-model Go
+CLI/TLS, hosted delivery/deployment and production evidence remain pending.
 Encryption deployment is deferred for this public/synthetic-only experiment.
 
 ## Operating commands
@@ -127,7 +132,9 @@ TLS, issues/redeems a verified invitation, and queries/reads originals over HTTP
 The worker is the real offline Python model, with no synthetic production fallback.
 It downloads no dataset or model and calculates no retrieval-quality metrics. Use
 the operator-defined, pre-acquired and verified `$MODEL_DIR` and `$MANIFEST` paths
-from the setup above; current live evidence is not bundled with this checkout.
+from the setup above. Current Python model/data results are recorded separately, but
+current-source genuine-model Go CLI/TLS evidence is still pending and is not bundled
+with this checkout.
 
 ```sh
 mkdir -m 700 /tmp/opencode/memotrace-go-search-smoke
