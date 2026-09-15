@@ -28,19 +28,35 @@ branches (99.34%), above the unchanged 90%/80% gates. Lint reported no issues;
 Spotless, debug APK assembly, and debug instrumentation APK assembly passed. No
 connected/device test or two-hour run was performed by the implementation owner.
 
+Hosted [run 34923383413](https://github.com/aisols/memotrace/actions/runs/34923383413),
+a push on `main` at `c84b79f`, failed only at `:app:lintDebug` after the online
+`NewerVersionAvailable` detector newly reported Robolectric 4.17. Robolectric 4.16.1
+remains this revision's tested pin; its line-local advisory suppression does not
+disable the detector globally, change lint severity, or weaken Android safety lint.
+The correction revision `b84bea2` then passed
+[PR #5 run 34926471902](https://github.com/aisols/memotrace/actions/runs/34926471902)
+at head `b84bea2041f980a2324c319815b7ba3c8305fbd3`: its `local-checks` job passed both
+**JVM Policy, Coverage, App Tests, Lint, Style, And APKs** and
+**Connected-Test Safety Gates Without Devices**. No dependency version or
+runtime/test source changed. This pass covers the advisory correction, not later
+documentation edits, and adds no device or endurance evidence.
+
 Separate [MAIN-observed evidence for implementation commit `108a374`](long-run-verification-2026-09-10.md)
 records artifact hashes, an unlocked guarded 10/10 connected pass after an
 environment-blocked attempt, unresolved native cleanup, and a 3:14 normal-app smoke
 with viewer and SAF export checks. It does not establish the two-hour, sustained
 screen-off, body-worn, power-loss, restore, controlled benchmark, residue-free, or
-hosted-CI gates. Do not attribute those device actions to the implementation owner.
+other unperformed device gates. Do not attribute those device actions to the
+implementation owner or infer them from the hosted pass.
 
 ## Dated Device Evidence
 
 The 2026-09-10 record above covers application implementation commit `108a374`.
 Device tests occurred immediately before the commit on exactly those application
-sources; artifact hashes identify the tested APKs, and subsequent changes are
-documentation only.
+sources; artifact hashes identify the tested APKs. Subsequent changes are
+documentation plus the line-local Robolectric dependency advisory suppression; no
+dependency version, application/test source, APK behavior, or device-tested artifact
+changed.
 
 [MAIN's 2026-09-09 profile record](profiles-verification-2026-09-09.md) covers code
 `6445bad`: clean command passed 101 tasks; 23 core + 82 app = 105 tests, zero
@@ -256,7 +272,7 @@ Selected from official [AGP 8.13 compatibility](https://developer.android.com/bu
 [Gradle Java compatibility](https://docs.gradle.org/8.13/userguide/compatibility.html),
 and [CameraX stable releases](https://developer.android.com/jetpack/androidx/releases/camera).
 These are intentional stable API-36 pins, not assertions that they are the latest.
-The four explicit dependency-update advisory suppressions preserve this tested
+The five explicit dependency-update advisory suppressions preserve this tested
 matrix; they do not suppress Android safety checks. The SharedPreferences UseKtx suppressions
 preserve SharedPreferences.commit's Boolean failure result, which KTX discards.
 Lint otherwise treats warnings as errors, with no baseline.
@@ -480,7 +496,10 @@ cannot revive an earlier cancelled gesture.
 
 `.github/workflows/android.yml` runs the local command on Ubuntu 24.04 with pinned
 action commits and tool versions. It assembles instrumentation but does not claim
-hosted runners are the reference device. Hosted CI has not been run by the builder.
+hosted runners are the reference device. The initial failed
+[run 34923383413](https://github.com/aisols/memotrace/actions/runs/34923383413)
+remains the lint-drift root-cause record; advisory-correction revision `b84bea2`
+passed [PR #5 run 34926471902](https://github.com/aisols/memotrace/actions/runs/34926471902).
 Historical [PR #2](https://github.com/aisols/memotrace/pull/2) review and bounded
 MAIN device observations are in the [v1 evidence](verification-2026-09-09.md),
 with remaining limitations; its hosted rerun was pending at that snapshot.
@@ -489,8 +508,9 @@ is authoritative. [MAIN's dated profile record](profiles-verification-2026-09-09
 records `6445bad` with [CI run 34378499995 passed](https://github.com/aisols/memotrace/actions/runs/34378499995),
 not a guarantee for future HEADs. Long-run implementation commit `108a374` is
 identified separately in the [2026-09-10 evidence](long-run-verification-2026-09-10.md);
-artifact hashes identify its tested APKs, and hosted CI has not run for it.
-Latest-revision CI and unresolved required checks remain
+artifact hashes identify its tested APKs. The failed advisory run and correction
+pass are described above; neither changes the device evidence. Latest-revision CI
+and unresolved required checks remain
 merge gates. Cross-component verification is not applicable to this Android-only revision.
 The Gradle action v5.0.0 reference is the peeled official commit
 `4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2`, resolved using

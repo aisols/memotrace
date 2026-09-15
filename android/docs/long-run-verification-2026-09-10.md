@@ -21,8 +21,17 @@ with 101 tasks: 24 core plus 115 app tests, 139 total, with no failures, errors,
 skips. Core coverage was 132/132 lines and 151/152 branches. Lint, Spotless, and both
 APK assemblies passed. The isolated quality positive plus six expected negatives
 and connected-safety debug/release positives plus seven expected negatives also
-passed. These are host results, not MAIN device execution. Hosted CI has not run for
-this revision.
+passed. These are host results, not MAIN device execution. A later hosted
+[push run at `c84b79f`](https://github.com/aisols/memotrace/actions/runs/34923383413)
+failed only at `:app:lintDebug` because the online `NewerVersionAvailable` detector
+newly reported Robolectric 4.17; this revision intentionally retains its tested
+4.16.1 pin. Advisory-correction revision `b84bea2` then passed
+[PR #5 run 34926471902](https://github.com/aisols/memotrace/actions/runs/34926471902)
+at head `b84bea2041f980a2324c319815b7ba3c8305fbd3`. Its `local-checks` job passed
+**JVM Policy, Coverage, App Tests, Lint, Style, And APKs** and
+**Connected-Test Safety Gates Without Devices**. No dependency version or
+runtime/test source changed. The pass covers that code correction, not later
+documentation edits, and adds no device or endurance evidence.
 
 ## Connected Run
 
@@ -125,5 +134,6 @@ JPEG, tombstone, or application data was deleted for this record.
 - Sustained screen-off recording was not tested.
 - Force-stop, reboot, power loss, restore, and restored-backup behavior were not tested.
 - The profile outputs and short battery change are not controlled quality or battery benchmarks.
-- Hosted CI has not run for this revision.
+- The correction received a hosted pass after the initial advisory-only failure;
+  that pass adds no device/endurance evidence and does not cover later docs-only edits.
 - Unresolved native cleanup has no physical-unlink or residue-free proof.
