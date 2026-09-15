@@ -21,8 +21,11 @@ with 101 tasks: 24 core plus 115 app tests, 139 total, with no failures, errors,
 skips. Core coverage was 132/132 lines and 151/152 branches. Lint, Spotless, and both
 APK assemblies passed. The isolated quality positive plus six expected negatives
 and connected-safety debug/release positives plus seven expected negatives also
-passed. These are host results, not MAIN device execution. Hosted CI has not run for
-this revision.
+passed. These are host results, not MAIN device execution. A later hosted
+[push run at `c84b79f`](https://github.com/aisols/memotrace/actions/runs/34923383413)
+failed only at `:app:lintDebug` because the online `NewerVersionAvailable` detector
+newly reported Robolectric 4.17; this revision intentionally retains its tested
+4.16.1 pin. No passing hosted follow-up is claimed.
 
 ## Connected Run
 
@@ -125,5 +128,6 @@ JPEG, tombstone, or application data was deleted for this record.
 - Sustained screen-off recording was not tested.
 - Force-stop, reboot, power loss, restore, and restored-backup behavior were not tested.
 - The profile outputs and short battery change are not controlled quality or battery benchmarks.
-- Hosted CI has not run for this revision.
+- No passing hosted CI existed at this evidence snapshot; the recorded run failed
+  only on the newly available Robolectric 4.17 advisory for the tested 4.16.1 pin.
 - Unresolved native cleanup has no physical-unlink or residue-free proof.
