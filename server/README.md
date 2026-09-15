@@ -35,14 +35,17 @@ The separate [object-search experiment](docs/object-search-experiment.md) runs v
 Base224 coarse ranking, YOLOS proposals, independent DINO reranking and bounded
 proposal tracklets. Its verifier uses synthetic inputs without model/data downloads.
 
-The [2026-09-14 evidence record](benchmarks/object-search-experiment-2026-09-14.md)
-binds the first usable offline experiment to actual uncommitted source hashes over
-`39b24e3`. It records public reranking, private cohort/tracklet diagnostics, and a
-passing 100-image genuine-model Go/PostgreSQL CLI/TLS smoke with independent exact-
-query checks. Production stays **Base224 full**, with no new history endpoints,
-database object associations or user confirmation. A narrow private PTS scan leaves
-canonical content/frame-zero and independently reproducible licensed acquisition
-unestablished; official VQ2D evaluation was not run.
+The [expanded 2026-09-14 evaluation](benchmarks/object-search-expanded-evaluation-2026-09-14.md)
+records 30 frozen queries from new distinct parents: 25 completed model runs,
+5 unsupported, and capture of 22/25 supported or 22/30 operational queries. It
+separates candidate-frame retrieval from localized-region hits and accounts for
+shortlist, proposal and DINO winner errors. Experiment source is committed at
+`ab2fa79`; **Base224 full** remains default, with K=50 the next challenger. Exact
+30 FPS CFR PTS is verified for the 25 supported queries; canonical content/frame-zero
+remains assumed and official VQ2D evaluation was not run.
+The [first 2026-09-14 record](benchmarks/object-search-experiment-2026-09-14.md)
+preserves its uncommitted-at-measurement source history, public reranking, private
+cohort/tracklet diagnostics and passing 100-image Go/PostgreSQL CLI/TLS smoke.
 The [2026-09-13 evaluation](benchmarks/everyday-object-evaluation-2026-09-13.md)
 retains its historical model comparison and private diagnostic scope.
 The [2026-09-10 main verification](docs/retrieval-main-verification-2026-09-10.md)

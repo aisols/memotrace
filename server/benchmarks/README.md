@@ -6,13 +6,17 @@ the autonomous server Python package in [`../ml/`](../ml/README.md). Downloaded
 models, JPEGs, annotation contents, attribution and machine reports remain outside
 Git. All committed test images are generated synthetic fixtures.
 
-The [current 2026-09-14 evidence record](object-search-experiment-2026-09-14.md)
-summarizes the first usable [offline proposal/descriptor experiment](../docs/object-search-experiment.md),
-public class-proxy reranking, a private v7 cohort-bound repeat and three-query
-proposal tracklets. It also records a passing 100-image genuine-model Go/PostgreSQL
-CLI/TLS smoke and independent exact-query matching. Source hashes bind uncommitted
-work over `39b24e3`; production remains Base224 full. No new history endpoints,
-database object associations or user confirmation are implemented.
+The [current expanded 2026-09-14 evaluation](object-search-expanded-evaluation-2026-09-14.md)
+records 30 frozen queries from 30 new parent videos: 25 completed model runs,
+5 unsupported queries, and capture of 22/25 supported or 22/30 operational queries.
+It separates candidate-frame retrieval from localized-region hits and diagnoses
+shortlist, proposal and DINO winner failures. The
+[offline experiment](../docs/object-search-experiment.md) source is committed at
+`ab2fa79`; Base224 full remains the default, with K=50 the next challenger.
+The [2026-09-14 Ego4D text-search trial](ego4d-text-search-2026-09-14.md) records offline exact-title/template retrieval with three genuine checkpoints.
+The [first 2026-09-14 record](object-search-experiment-2026-09-14.md) preserves its
+uncommitted-at-measurement source hashes, public reranking, private v7 repeat,
+three-query tracklets and passing 100-image Go/PostgreSQL CLI/TLS smoke.
 The [2026-09-13 evidence record](everyday-object-evaluation-2026-09-13.md) retains
 its historical v3 checkpoint comparison and private diagnostic scope. The
 [historical everyday-object evaluation](everyday-object-evaluation-2026-09-10.md)
@@ -265,7 +269,7 @@ optimistic relative to deployment: unknowns can occupy real result slots, and a
 class with no verified negatives yields a trivial judged ranking. Always read
 judged/unknown counts alongside aggregate scores. These are neither official
 Open Images detection scores nor **Ego4D VQ** scores, instance identity, or history
-quality. The [current 2026-09-14 record](object-search-experiment-2026-09-14.md)
+quality. The [first 2026-09-14 record](object-search-experiment-2026-09-14.md)
 reports proposal/descriptor results with these limits; the
 [2026-09-13 record](everyday-object-evaluation-2026-09-13.md) retains its v3 comparison;
 the [historical 2026-09-10 evaluation](everyday-object-evaluation-2026-09-10.md)
@@ -287,10 +291,10 @@ measurement. JSONL transport, Go persistence/search and DB time are separate gat
 Authorized/licensed Ego4D access was available and used, and downloaded private
 media and annotations were used for the external selected-cohort diagnostic summarized
 safely in the [2026-09-13 evidence record](everyday-object-evaluation-2026-09-13.md)
-and [2026-09-14 follow-up](object-search-experiment-2026-09-14.md). No
+and [expanded 2026-09-14 evaluation](object-search-expanded-evaluation-2026-09-14.md). No
 gated data, credentials, private IDs, annotations, media, raw reports, licensed
-downloader, or dataset adapter is committed. The latest fixed three-query sample
-has a checked source-clip PTS scan, not whole-cohort timing evidence. Canonical
+downloader, or dataset adapter is committed. The expanded 30-query cohort has
+exact 30 FPS CFR PTS verification for its 25 supported queries. Canonical
 content/frame-zero and independently reproducible licensed acquisition remain
 unestablished; official [VQ2D evaluation](https://ego4d-data.org/docs/benchmarks/episodic-memory/)
 was not run. The diagnostic does not establish stable instance identity, tracking,
